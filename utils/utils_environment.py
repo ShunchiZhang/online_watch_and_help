@@ -1,4 +1,3 @@
-import ipdb
 import copy
 import random
 
@@ -131,7 +130,7 @@ def inside_not_trans(graph):
                 'class_name'
             ].startswith('closet'):
                 print('{} has > 1 parent'.format(edge['from_id']))
-                ipdb.set_trace()
+                raise AssertionError
                 raise Exception
             parent_for_node[edge['from_id']] = edge['to_id']
             # add close edge between objects in a container and the character
@@ -182,7 +181,7 @@ def inside_not_trans(graph):
     if len(nodes_without_parent) > 0:
         for nd in nodes_without_parent:
             print(id2node[nd])
-        ipdb.set_trace()
+        raise AssertionError
         raise Exception
     return graph
 
@@ -349,7 +348,7 @@ def check_progress(state, goal_spec):
                     unsatisfied[key] -= 1
     # ipdb.set_trace()
     if len(satisfied) == 0 and len(unsatisfied) == 0:
-        ipdb.set_trace()
+        raise AssertionError
     return satisfied, unsatisfied
 
 

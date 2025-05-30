@@ -1,0 +1,28 @@
+{
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.formatOnSave": false,
+  "editor.formatOnSaveMode": "modifications",
+  "editor.codeActionsOnSave": {
+    "source.convertImportFormat": "never",
+    "source.fixAll": "never",
+    "source.fixAll.pylance": "never",
+    "source.fixAll.ruff": "never",
+    "source.organizeImports": "never",
+    "source.organizeImports.ruff": "never",
+    "source.unusedImports": "never"
+  },
+  "[json]": {
+    // "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.formatOnSave": false
+  },
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
+  "files.trimTrailingWhitespace": false,
+  "files.trimTrailingWhitespaceInRegexAndStrings": false
+}

@@ -1,23 +1,13 @@
 from utils import utils_environment as utils
 import math
-import sys
-import os
-
-curr_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f'{curr_dir}/../../virtualhome/simulation/')
-sys.path.append(f'{curr_dir}/..')
-
-from environment.unity_environment import UnityEnvironment as BaseUnityEnvironment
+from virtualhome.simulation.environment.unity_environment import UnityEnvironment as BaseUnityEnvironment
 from evolving_graph import utils as utils_env
 from utils import utils_environment as utils_env2
-import pdb
-import traceback
 from termcolor import colored
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 import copy
-import ipdb
 
 
 class UnityEnvironment(BaseUnityEnvironment):
@@ -313,7 +303,7 @@ class UnityEnvironment(BaseUnityEnvironment):
         )
         node_ids = set([node['id'] for node in g['nodes']])
         if len(edge_ids - node_ids) > 0:
-            pdb.set_trace()
+            raise AssertionError
 
         if self.env_id not in self.max_ids.keys():
             max_id = max([node['id'] for node in g['nodes']])
@@ -368,13 +358,11 @@ class UnityEnvironment(BaseUnityEnvironment):
                 import pickle as pkl
                 with open("debug_wah.pkl", "wb") as f:
                     pkl.dump(content_dict, f)
-                ipdb.set_trace()
+                raise AssertionError
 
         if not success:
-            ipdb.set_trace()
             print("Error expanding scene")
-            ipdb.set_trace()
-            return None
+            raise AssertionError
 
         self.offset_cameras = self.comm.camera_count()[1]
         if self.init_rooms[0] not in ['kitchen', 'bedroom', 'livingroom', 'bathroom']:
@@ -567,7 +555,7 @@ class UnityEnvironment(BaseUnityEnvironment):
                 image_height=image_height,
             )
             if not s:
-                pdb.set_trace()
+                raise AssertionError
             return images[0]
         else:
             raise NotImplementedError

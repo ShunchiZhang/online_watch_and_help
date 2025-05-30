@@ -1,14 +1,10 @@
 import random
 import cv2
 import logging
-import torch
-from utils import utils_exception
 import copy
 import numpy as np
 from tqdm import tqdm
 import time
-import ipdb
-import ray
 import traceback
 import atexit
 
@@ -555,7 +551,7 @@ class ArenaMP(object):
                     if 'RL' in self.agents[agent_id].agent_type:
                         state = last_agent_info[agent_id]['state_inputs']
                         if 'edges' in obs.keys():
-                            pdb.set_trace()
+                            raise AssertionError
                         policy = [
                             log_prob.data
                             for log_prob in last_agent_info[agent_id]['probs']
@@ -681,7 +677,7 @@ class ArenaMP(object):
                 # logging.info("Many failures")
                 raise utils_exception.ManyFailureException
 
-            print("\nAgent Step:")
+            print(f"\nAgent Step: {step}")
             print("----------")
             # print("Goals:", self.env.task_goal)
             print("Action: ", actions, new_agent_position)

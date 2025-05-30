@@ -1,14 +1,8 @@
-import pickle
-import pdb
-import sys
 import os
 import random
 from termcolor import colored
-import json
-import ipdb
 import numpy as np
 import copy
-import argparse
 
 
 curr_dir = os.path.dirname(os.path.abspath(__file__))
@@ -391,7 +385,7 @@ class SetInitialGoal:
 
                     target_id_name = [node['class_name'] for node in graph['nodes'] if node['id'] == target_id]
                     if 'livingroom' in target_id_name and obj_name == 'plate':
-                        pdb.set_trace()
+                        raise AssertionError
 
                     target_pool = [k for k, v in ids_class.items() if target_id in v]
                     target_position_pool = [tem[0] for tem in self.obj_position[obj_name] if tem[1] in target_pool]
@@ -410,7 +404,7 @@ class SetInitialGoal:
                         if num_place2 > self.max_num_place:
                             break
                         if len(candidates) == 0:
-                            ipdb.set_trace()
+                            raise AssertionError
                         relation, target_classname = self.rand.choice(candidates)
                         
                         candidate_obj = [x[1] for x in candidates]
@@ -419,11 +413,11 @@ class SetInitialGoal:
                         target_id_name = [node['class_name'] for node in graph['nodes'] if node['id'] == target_id]
 
                         if 'livingroom' in target_id_name and obj_name == 'plate':
-                            pdb.set_trace()
+                            raise AssertionError
 
                         if self.same_room and goal_obj:
                             if target_id in objs_in_room:
-                                ipdb.set_trace()
+                                raise AssertionError
                                 break
                             else:
                                 num_place2 += 1
@@ -507,66 +501,3 @@ class SetInitialGoal:
         node[0]['states'] = ['OFF']
         # + [state for state in node[0]['states'] if state not in ['ON', 'OFF']]
         return graph
-
-
-
-def debug_function(comm):
-    with open('data/object_info.json', 'r') as file:
-        obj_position = json.load(file)
-
-    success_edges = []
-    fail_target_nodes = []
-
-    for obj_name in obj_position['objects_grab']:
-        object_id = 2000
-        new_node = {'id': object_id, 'class_name': obj_name, 'properties': ['GRABBABLE'], 'states': [],
-                    'category': 'added_object'}
-        nodes = [new_node]
-
-        for target_name in obj_position['objects_inside']:
-            s, graph = comm.environment_graph()
-
-            target_node = [node for node in graph['nodes'] if node['class_name'] == target_name]
-            if len(target_node) == 0:
-                print(target_name)
-                fail_target_nodes.append(target_name)
-                continue
-
-            target_id = target_node[0]['id']
-
-            edges = [{'from_id': object_id, 'relation_type': 'INSIDE', 'to_id': target_id}]
-
-            graph['nodes'] += nodes
-            graph['edges'] += edges
-            comm.reset(apartment)
-            success, message = comm.expand_scene(graph)
-            # print(success, message)
-
-            if success:
-                success_edges.append({'from_id': obj_name, 'relation_type': 'INSIDE', 'to_id': target_name})
-            else:
-                print({'from_id': obj_name, 'relation_type': 'INSIDE', 'to_id': target_name})
-
-        for target_name in obj_position['objects_surface']:
-            s, graph = comm.environment_graph()
-
-            target_node = [node for node in graph['nodes'] if node['class_name'] == target_name]
-            if len(target_node) == 0:
-                print(target_name)
-                fail_target_nodes.append(target_name)
-                continue
-
-            target_id = target_node[0]['id']
-
-            edges = [{'from_id': object_id, 'relation_type': 'ON', 'to_id': target_id}]
-
-            graph['nodes'] += nodes
-            graph['edges'] += edges
-            comm.reset(apartment)
-            success, message = comm.expand_scene(graph)
-            # print(success, message)
-
-            if success:
-                success_edges.append({'from_id': obj_name, 'relation_type': 'ON', 'to_id': target_name})
-            else:
-                print({'from_id': obj_name, 'relation_type': 'ON', 'to_id': target_name})

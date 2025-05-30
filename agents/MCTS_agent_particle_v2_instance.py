@@ -1,31 +1,13 @@
 import numpy as np
-import traceback
-import logging
 import random
 import time
-import math
 import copy
-import importlib
-import json
 import multiprocessing as mp
 from functools import partial
-import ipdb
-import pdb
-import pickle
-
-
 from . import belief
 from envs.graph_env import VhGraphEnv
-
-#
-import pdb
-from MCTS import *
-
-import sys
-
-sys.path.append('..')
+from MCTS.MCTS_particles_v2_instance import *
 from utils import utils_environment as utils_env
-from utils import utils_exception
 
 
 def find_heuristic(
@@ -284,7 +266,7 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
 
     target_grab, target_put = [int(x) for x in target.split('_')[-2:]]
     if verbose:
-        ipdb.set_trace()
+        raise AssertionError
     if (
         sum(
             [
@@ -334,7 +316,7 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
         > 0
     )
     if verbose:
-        ipdb.set_trace()
+        raise AssertionError
     object_diff_room = None
     if not target_grabbed:
         grab_obj1, cost_grab_obj1, heuristic_name = grab_heuristic(
@@ -369,7 +351,7 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
     cost_list = cost_grab_obj1 + cost_find_obj2
 
     if verbose:
-        ipdb.set_trace()
+        raise AssertionError
     if target_put > 2:  # not character
         action = [
             (
@@ -727,7 +709,7 @@ def get_plan(
         info = [mp_run(rn) for rn in root_nodes]
 
     for info_item in info:
-        if isinstance(info_item, utils_exception.ExceptionWrapper):
+        if not isinstance(info_item, tuple):
             print("rasiing")
             info_item.re_raise()
 
@@ -765,7 +747,7 @@ def get_plan(
                 reward = rewards_all[ind][index_action]
                 goal = goals_all[ind][index_action]
             except:
-                ipdb.set_trace()
+                raise AssertionError
             if not action in action_count_dict:
                 action_count_dict[action] = []
                 action_goal_dict[action] = []
@@ -800,7 +782,7 @@ def get_plan(
     if len(final_actions) == 0:
         print("No actions")
     if verbose:
-        ipdb.set_trace()
+        raise AssertionError
 
     plan = final_actions
     subgoals = final_goals
@@ -998,15 +980,15 @@ class MCTS_agent_particle_v2_instance:
             if len(curr_loc_on) > 1 or len(curr_loc_inside) > 1:
                 print(curr_loc_on)
                 print(curr_loc_inside)
-                ipdb.set_trace()
-        return curr_loc_index
+                raise AssertionError("Multiple locations for the same object")
+            return curr_loc_index
 
     def get_action(
         self, obs, goal_spec, opponent_subgoal=None, length_plan=5, must_replan=False
     ):
         # ipdb.set_trace()
         if len(goal_spec) == 0:
-            ipdb.set_trace()
+            raise AssertionError
 
         # Create the particles
         # pdb.set_trace()
@@ -1162,7 +1144,7 @@ class MCTS_agent_particle_v2_instance:
                     obj_grab = int(last_subgoal[0].split('_')[1])
                     curr_loc_index = self.get_location_in_goal(obs, obj_grab)
                     if obj_grab not in self.last_loc:
-                        ipdb.set_trace()
+                        raise AssertionError
                     if curr_loc_index != self.last_loc[obj_grab]:
                         # The object I wanted to get now changed position, so I should replan
                         #self.last_loc = curr_loc_index
@@ -1262,7 +1244,7 @@ class MCTS_agent_particle_v2_instance:
 
             if self.verbose:
                 print("here")
-                ipdb.set_trace()
+                raise AssertionError
 
             # update last_loc, we will store the location of the objects we are trying to grab
             # at the moment of planning, if something changes, then we will replan when time comes
@@ -1363,7 +1345,7 @@ class MCTS_agent_particle_v2_instance:
                 grab_id = int(action.split()[2][1:-1])
                 grabbed_obj = [edge for edge in obs['edges'] if edge['to_id'] == grab_id and 'hold' in edge['relation_type'].lower()]
                 if len(grabbed_obj):
-                    ipdb.set_trace()
+                    raise AssertionError
             # if len([edge for edge in obs['edges'] if edge['from_id'] == 369 and edge['to_id'] == 103]) > 0:
             #     print("Bad plan")
             #     ipdb.set_trace()

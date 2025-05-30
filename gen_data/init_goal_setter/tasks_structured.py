@@ -1,6 +1,3 @@
-
-import pdb
-import ipdb
 import copy
 
 def get_container_task(init_goal_manager, graph, containers):
@@ -20,7 +17,7 @@ def get_container_task(init_goal_manager, graph, containers):
         if cont == 'sink':
             cont_ids = [ctid for ctid in cont_ids if ctid in ids_kichen]
         if len(cont_ids) == 0:
-            ipdb.set_trace()
+            raise AssertionError
         cont_id = init_goal_manager.rand.choice(cont_ids)
         container_id_map[cont] = cont_id
         container_ids.append(cont_id)
@@ -28,7 +25,7 @@ def get_container_task(init_goal_manager, graph, containers):
 
     
     if len(container_ids) == 0:
-        ipdb.set_trace()
+        raise AssertionError
 
 
 
@@ -140,7 +137,7 @@ class Task:
 
 
         if len(container_ids) == 0:
-            ipdb.set_trace()
+            raise AssertionError
 
         if init_goal_manager.same_room:
             objs_in_room = init_goal_manager.get_obj_room(container_ids[0])
@@ -255,10 +252,10 @@ class Task:
                                                                     objs_in_room=objs_in_room, except_position=except_position_ids,
                                                                     goal_obj=True)
             except:
-                ipdb.set_trace()
+                raise AssertionError
             # print([node for node in graph['nodes'] if node['class_name'] == 'wineglass'])
             if not success:
-                ipdb.set_trace()
+                raise AssertionError
                 return None, None, False
 
 
@@ -332,7 +329,7 @@ class Task:
                                                                     objs_in_room=objs_in_room, except_position=except_position_ids,
                                                                     goal_obj=True)
             except:
-                ipdb.set_trace()
+                raise AssertionError
             # print([node for node in graph['nodes'] if node['class_name'] == 'wineglass'])
             if not success:
                 # ipdb.set_trace()
@@ -384,7 +381,7 @@ class Task:
 
 
         if len(container_ids) == 0:
-            ipdb.set_trace()
+            raise AssertionError
 
         if init_goal_manager.same_room:
             objs_in_room = init_goal_manager.get_obj_room(container_ids[0])
@@ -473,7 +470,7 @@ class Task:
 
 
         if len(container_ids) == 0:
-            ipdb.set_trace()
+            raise AssertionError
 
         if init_goal_manager.same_room:
             objs_in_room = init_goal_manager.get_obj_room(container_ids[0])
@@ -495,7 +492,7 @@ class Task:
                                                                 goal_obj=True)
             # print([node for node in graph['nodes'] if node['class_name'] == 'wineglass'])
             if not success:
-                ipdb.set_trace()
+                raise AssertionError
                 return None, None, False
 
         # # place objects and random objects
@@ -531,5 +528,3 @@ class Task:
         env_goal = build_env_goal("watch_tv", init_goal_manager, container_ids, container_pred, container_ids_random, container_random_pred)        
 
         return graph, env_goal, True
-
-

@@ -4,15 +4,9 @@ from envs.graph_env import VhGraphEnv
 from anytree import AnyNode as Node
 import copy
 from termcolor import colored
-import ipdb
-from termcolor import colored
-
-
 from tqdm import tqdm
 from utils import utils_environment as utils_env
-import traceback
 from evolving_graph.environment import Relation
-from utils import utils_exception
 
 
 class MCTS_particles_v2_instance:
@@ -305,7 +299,7 @@ class MCTS_particles_v2_instance:
             if double_put:
                 
                 if self.verbose:
-                    ipdb.set_trace()
+                    raise AssertionError
                 raise Exception
                 # pass
                 # ipdb.set_trace()
@@ -330,7 +324,7 @@ class MCTS_particles_v2_instance:
         rewards = []
         root_path = [curr_root]
         if self.verbose:
-            ipdb.set_trace()
+            raise AssertionError
         while curr_root.is_expanded and len(curr_root.children) > 0:
 
             actions_taken, children_visit, next_root = self.select_next_root(curr_root)
@@ -468,7 +462,7 @@ class MCTS_particles_v2_instance:
                 unsatisfied[pred_name] = count
             subgoals += subgoals_hand
             if verbose:
-                ipdb.set_trace()
+                raise AssertionError
         
             # print("Roll", len(subgoals))
             if len(subgoals) == 0:
@@ -523,7 +517,7 @@ class MCTS_particles_v2_instance:
             )
             if verbose:
                 
-                ipdb.set_trace()
+                raise AssertionError
                 actions, _, action_name = heuristic(
                     self.agent_id,
                     self.char_index,
@@ -533,7 +527,7 @@ class MCTS_particles_v2_instance:
                     goal_selected,
                     True
                 )
-                ipdb.set_trace()
+                raise AssertionError
             # print(actions)
             # if '336' in goal_selected:
             #     ipdb.set
@@ -581,7 +575,7 @@ class MCTS_particles_v2_instance:
 
                     if not success:
                         print(f"Failure in transition when executing {action_str}")
-                        ipdb.set_trace()
+                        raise AssertionError
                         raise Exception
                     curr_vh_state = next_vh_state
                     total_cost += cost
@@ -844,7 +838,7 @@ class MCTS_particles_v2_instance:
 
                 if not success:
                     print("Failure", actions)
-                    ipdb.set_trace()
+                    raise AssertionError
             # if 'put' in actions:
             #      print("CLOSE:", [edge for edge in next_state_dict['edges'] if edge['to_id'] == 232 and edge['from_id'] == 1])
             # final_vh_state = copy.deepcopy(next_vh_state)
@@ -918,11 +912,11 @@ class MCTS_particles_v2_instance:
                 delta_reward.append(rewards[i] - rewards[i - 1] - costs[i])
         except:
             print(rewards, costs)
-            ipdb.set_trace()
+            raise AssertionError
 
         # delta_reward.append(0)
         if len(delta_reward) <= t:
-            ipdb.set_trace()
+            raise AssertionError
 
         curr_value = value
 
@@ -1142,8 +1136,8 @@ class MCTS_particles_v2_instance:
                     continue
             except:
                 if self.add_bp:
-                    ipdb.set_trace()
-                ipdb.set_trace()
+                    raise AssertionError
+                raise AssertionError
                 raise Exception
             if (
                 action_heuristic_name not in actions_heuristic
@@ -1195,7 +1189,7 @@ class MCTS_particles_v2_instance:
             ]
             currplan = [xt.split() for xt in action_list]
             if len(hands_busy) == 2 and "[open]" in currplan:
-                ipdb.set_trace()
+                raise AssertionError
             # ipdb.set_trace()
             new_node = Node(
                 parent=node,
@@ -1315,7 +1309,7 @@ class MCTS_particles_v2_instance:
                     # ipdb.set_trace()
                     index_offer = container_id
                     if index_offer == 394:
-                        ipdb.set_trace()
+                        raise AssertionError
                     for obj_id in obj_ids_grab:
                         tmp_predicate = f"offer_{obj_id}_{index_offer}"
                         # object_is_grabbed = (

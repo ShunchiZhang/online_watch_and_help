@@ -1,0 +1,41 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "test_single_agent_structured",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "testing_agents/test_single_agent_structured.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--executable_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
+        "--dataset_path=./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik"
+      ]
+    },
+    {
+      "name": "vh_init_structured",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "gen_data/vh_init_structured.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--exec_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app"
+      ],
+    }
+  ]
+}

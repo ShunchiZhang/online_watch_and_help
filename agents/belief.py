@@ -1,15 +1,11 @@
 import numpy as np
 import random
-from simulation.evolving_graph.utils import load_graph_dict, load_name_equivalence
-from simulation.evolving_graph.environment import EnvironmentState, EnvironmentGraph, GraphNode
+from virtualhome.simulation.evolving_graph.utils import load_name_equivalence
+from virtualhome.simulation.evolving_graph.environment import EnvironmentState, EnvironmentGraph
 import scipy.special
-import ipdb
-import pdb
-import sys
-import simulation.evolving_graph.utils as vh_utils
+import virtualhome.simulation.evolving_graph.utils as vh_utils
 import json
 import copy
-from termcolor import colored
 
 def get_rooms_category(belief_type):
     room_names = ['kitchen', 'bedroom', 'bathroom', 'livingroom']
@@ -105,7 +101,7 @@ def get_container_prior(id2node, belief_type, container_ids):
         try:
             id_cabinet = [(id_obj, index_cont) for index_cont, id_obj in enumerate(container_ids) if id_obj != None and id2node[id_obj]['class_name'] ==  'cabinet']
         except:
-            ipdb.set_trace()
+            raise AssertionError
         if len(id_cabinet) > 0:
             # Object is in the cabinet
             # Raw apprixmation
@@ -125,7 +121,7 @@ def get_container_prior(id2node, belief_type, container_ids):
         try:
             id_cabinet = [(id_obj, index_cont) for index_cont, id_obj in enumerate(container_ids) if id_obj != None and id2node[id_obj]['class_name'] in class_names]
         except:
-            ipdb.set_trace()
+            raise AssertionError
         if len(id_cabinet) > 0:
             # Object is in the cabinet
             # Raw apprixmation
@@ -477,7 +473,7 @@ class Belief():
                         sample_inside = np.random.choice(edge_belief_inside[0], p=scipy.special.softmax(edge_belief_inside[1]))
                     except:
                         print('Error with {}'.format(node['id']))
-                        ipdb.set_trace()
+                        raise AssertionError
                 
                 if sample_inside is None:
                     # Sample in a room
@@ -601,9 +597,7 @@ class Belief():
             if x['relation_type'] == 'INSIDE':
                 if x['from_id'] in inside.keys():
                     print('Already inside', id2node[x['from_id']]['class_name'], id2node[inside[x['from_id']]]['class_name'], id2node[x['to_id']]['class_name'])
-                    import ipdb
-                    ipdb.set_trace()
-                    raise Exception
+                    raise AssertionError
 
                 inside[x['from_id']] = x['to_id']
 
@@ -850,7 +844,7 @@ class Belief():
                     try:
                         self.room_node[id_node][1][mask_house] = self.first_room[id_node][1][mask_house]
                     except:
-                        pdb.set_trace()
+                        raise AssertionError
             else:
                 if np.max(self.room_node[id_node][1]) == self.low_prob:
                     self.room_node[id_node][1][mask_house] = self.first_room[id_node][1][mask_house]

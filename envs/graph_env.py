@@ -1,26 +1,10 @@
 import numpy as np
-import json
-import copy
-import ipdb
 import itertools
-import os
-import sys
+from virtualhome.simulation.evolving_graph.execution import ScriptExecutor, ExecutionInfo
+from virtualhome.simulation.evolving_graph.scripts import read_script_from_string
 
-
-curr_dir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(f'{curr_dir}/../../virtualhome/simulation/')
-
-from termcolor import colored
-from evolving_graph.utils import (
-    load_graph_dict,
-    load_name_equivalence,
-    graph_dict_helper,
-)
-from evolving_graph.execution import ScriptExecutor, ExecutionInfo
-from evolving_graph.scripts import read_script_from_string
-
-from evolving_graph.environment import EnvironmentGraph, Relation
-from evolving_graph.environment import EnvironmentState as EnvironmentStateBase
+from virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, Relation
+from virtualhome.simulation.evolving_graph.environment import EnvironmentState as EnvironmentStateBase
 
 
 def init_from_state(env_state: EnvironmentStateBase, touched_objs, offer_objs):
@@ -249,8 +233,7 @@ class VhGraphEnv:
             door_dict[(294, 56)] = 297
         else:
             print(doors)
-            ipdb.set_trace()
-            raise Exception
+            raise AssertionError
         for doork, doorv in door_dict.items():
             door_dict[doork] = [doorv]
         door_dict = self.intermediate_doors(door_dict, rooms, doors)
@@ -320,7 +303,7 @@ class VhGraphEnv:
                         indexr for indexr in inside_obj if indexr in self.rooms_ids
                     ][0]
                 except:
-                    ipdb.set_trace()
+                    raise AssertionError
                 if (
                     'GRABBABLE'
                     not in self.id2node[object_script.instance]['properties']
@@ -356,7 +339,7 @@ class VhGraphEnv:
                 try:
                     doors = self.room_doors[(room_char, curr_room)]
                 except:
-                    ipdb.set_trace()
+                    raise AssertionError
 
             if len(doors) > 0:
                 doors_pos = [self.id2node[did]['bounding_box']['center'] for did in doors]
@@ -528,7 +511,7 @@ class VhGraphEnv:
                             script, vh_state, in_place=True
                     )
                 except:
-                    ipdb.set_trace()
+                    raise AssertionError
                 next_vh_state = init_from_state(
                     next_vh_state, touched_objs, vh_state.offer_obj
                 )
@@ -540,7 +523,7 @@ class VhGraphEnv:
                 return False, next_vh_state
 
         if next_vh_state is None:
-            ipdb.set_trace()
+            raise AssertionError
         # state = next_vh_state.to_dict()
         return True, next_vh_state
 
@@ -760,9 +743,7 @@ class VhGraphEnv:
         if len(obj_cand_list) == 0:
             return '[{}]'.format(action)
         if debug:
-            import pdb
-
-            pdb.set_trace()
+            raise AssertionError
         obj_list = ' '.join(
             [
                 '<{}> ({})'.format(node_obj['class_name'], node_obj['id'])
@@ -887,26 +868,3 @@ class VhGraphEnv:
             s += "Task goal: ({})".format(self.task.goal_n[i]) + "\n"
 
         return s
-
-
-def _test1():
-
-    env = VhGraphEnv()
-    task_goals = (
-        '(and (ontop phone[247] kitchen_counter_[230]) (inside character[65]'
-        ' dining_room[201]))'
-    )
-    state_path = '/scratch/gobi1/andrewliao/programs_processed_precond_nograb_morepreconds/init_and_final_graphs/TrimmedTestScene1_graph/results_intentions_march-13-18/file1003_2.json'
-    s = env.reset(state_path, task_goals)
-
-    env.to_pomdp()
-    r, s, info = env.step("[walk] <dining_room> (201)")
-    r, s, info = env.step("[walk] <phone> (247)")
-    r, s, info = env.step("[grab] <phone> (247)")
-    print(r, info)
-
-
-if __name__ == '__main__':
-    import ipdb
-
-    _test1()

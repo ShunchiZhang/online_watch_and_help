@@ -1,23 +1,10 @@
 import pickle
-import pdb
-import ipdb
-import sys
-import os
 import random
 import json
 import numpy as np
 import copy
 import argparse
-
-curr_dir = os.path.dirname(os.path.abspath(__file__))
-home_path = '../../'
-sys.path.insert(0, f'{curr_dir}/../../virtualhome/')
-
-print('path', sys.path[0])
-
-sys.path.insert(0, f'{curr_dir}/..')
 from simulation.unity_simulator import comm_unity
-print(comm_unity.__file__)
 from init_goal_setter.init_goal_base import SetInitialGoal
 from init_goal_setter.tasks_structured import Task
 
@@ -336,8 +323,3 @@ if __name__ == "__main__":
                              'level': 0, 'init_rooms': rand.sample(['kitchen', 'bedroom', 'livingroom', 'bathroom'], 2)})
 
     pickle.dump(env_task_set, open(f'{curr_dir}/../dataset/structured_agent/{args.split}_env_task_set_{args.num_per_apartment}_{args.mode}_task.{args.task}_apts.{args.apt_str}.pik', 'wb'))
-
-
-
-
-
