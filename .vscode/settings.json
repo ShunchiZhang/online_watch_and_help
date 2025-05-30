@@ -1,28 +1,27 @@
 {
-  "editor.formatOnPaste": false,
-  "editor.formatOnType": false,
-  "editor.formatOnSave": false,
-  "editor.formatOnSaveMode": "modifications",
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": true,
+  "editor.formatOnSave": true,
+  // "editor.formatOnSaveMode": "modifications",
   "editor.codeActionsOnSave": {
-    "source.convertImportFormat": "never",
-    "source.fixAll": "never",
-    "source.fixAll.pylance": "never",
-    "source.fixAll.ruff": "never",
-    "source.organizeImports": "never",
-    "source.organizeImports.ruff": "never",
+    "source.convertImportFormat": "always",
+    "source.fixAll": "always",
+    "source.fixAll.pylance": "always",
+    "source.fixAll.ruff": "always",
+    "source.organizeImports": "always",
+    "source.organizeImports.ruff": "always",
     "source.unusedImports": "never"
   },
   "[json]": {
-    // "editor.defaultFormatter": "esbenp.prettier-vscode"
-    "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "vscode.json-language-features",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.formatOnSave": false
   },
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff"
   },
-  "files.trimTrailingWhitespace": false,
-  "files.trimTrailingWhitespaceInRegexAndStrings": false
+  "files.trimTrailingWhitespace": true,
+  "files.trimTrailingWhitespaceInRegexAndStrings": true
 }

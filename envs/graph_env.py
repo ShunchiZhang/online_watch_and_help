@@ -1,10 +1,15 @@
-import numpy as np
 import itertools
-from virtualhome.simulation.evolving_graph.execution import ScriptExecutor, ExecutionInfo
-from virtualhome.simulation.evolving_graph.scripts import read_script_from_string
 
+import numpy as np
 from virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, Relation
-from virtualhome.simulation.evolving_graph.environment import EnvironmentState as EnvironmentStateBase
+from virtualhome.simulation.evolving_graph.environment import (
+    EnvironmentState as EnvironmentStateBase,
+)
+from virtualhome.simulation.evolving_graph.execution import (
+    ExecutionInfo,
+    ScriptExecutor,
+)
+from virtualhome.simulation.evolving_graph.scripts import read_script_from_string
 
 
 def init_from_state(env_state: EnvironmentStateBase, touched_objs, offer_objs):
@@ -45,15 +50,15 @@ class EnvironmentState(EnvironmentStateBase):
         for from_n, r in from_pairs:
             for to_n in self.get_node_ids_from(from_n, r):
                 edges.append(
-                    {'from_id': from_n, 'relation_type': r.name, 'to_id': to_n}
+                    {"from_id": from_n, "relation_type": r.name, "to_id": to_n}
                 )
         nodes = []
         for node in self.get_nodes():
             dict_node = node.to_dict()
-            if dict_node['id'] in self.touched_objs:
-                dict_node['states'].append('touched')
+            if dict_node["id"] in self.touched_objs:
+                dict_node["states"].append("touched")
             nodes.append(dict_node)
-        return {'nodes': nodes, 'edges': edges}
+        return {"nodes": nodes, "edges": edges}
 
     def remove_obj_offer(self, obj_id):
         if obj_id in self.offer_obj:
@@ -67,8 +72,7 @@ class EnvironmentState(EnvironmentStateBase):
 
 
 class VhGraphEnv:
-
-    metadata = {'render.modes': ['human']}
+    metadata = {"render.modes": ["human"]}
     action_executors = []
     actions = [
         "Walk",  # Same as Run
@@ -115,21 +119,21 @@ class VhGraphEnv:
         # "Release"
     ]
     map_properties_to_pred = {
-        'ON': ('on', True),
-        'OPEN': ('open', True),
-        'OFF': ('on', False),
-        'CLOSED': ('open', False),
+        "ON": ("on", True),
+        "OPEN": ("open", True),
+        "OFF": ("on", False),
+        "CLOSED": ("open", False),
     }
     map_edges_to_pred = {
-        'INSIDE': 'inside',
-        'CLOSE': 'close',
-        'ON': 'ontop',
-        'FACING': 'facing',
+        "INSIDE": "inside",
+        "CLOSE": "close",
+        "ON": "ontop",
+        "FACING": "facing",
     }
-    house_obj = ['floor', 'wall', 'ceiling']
+    house_obj = ["floor", "wall", "ceiling"]
 
     def __init__(self, n_chars=1, max_nodes=200):
-        self.graph_helper = None # graph_dict_helper()
+        self.graph_helper = None  # graph_dict_helper()
         self.n_chars = n_chars
         self.name_equivalence = None
 
@@ -171,10 +175,10 @@ class VhGraphEnv:
         door_dict = {}
 
         doors = sorted(
-            [node['id'] for node in self.state['nodes'] if node['category'] == 'Doors']
+            [node["id"] for node in self.state["nodes"] if node["category"] == "Doors"]
         )
         rooms = sorted(
-            [node['id'] for node in self.state['nodes'] if node['category'] == 'Rooms']
+            [node["id"] for node in self.state["nodes"] if node["category"] == "Rooms"]
         )
         if doors == [52, 53, 171, 227, 363, 364]:
             door_dict[(11, 74)] = 52
@@ -255,7 +259,7 @@ class VhGraphEnv:
         scriptline = script[0]
         object_script = scriptline.object()
 
-        if scriptline.action.name != 'WALK':
+        if scriptline.action.name != "WALK":
             return 0
         if object_script is None:
             return 0
@@ -267,12 +271,12 @@ class VhGraphEnv:
             close_char = [
                 index
                 for index in close_char
-                if 'GRABBABLE' not in self.id2node[index]['properties']
+                if "GRABBABLE" not in self.id2node[index]["properties"]
             ]
             if len(close_char) == 0:
-                pos_char = self.id2node[room_char]['bounding_box']['center']
+                pos_char = self.id2node[room_char]["bounding_box"]["center"]
             else:
-                pos_char = self.id2node[close_char[0]]['bounding_box']['center']
+                pos_char = self.id2node[close_char[0]]["bounding_box"]["center"]
             curr_node = vh_state.get_node(object_script.instance)
 
             # ipdb.set_trace()
@@ -282,7 +286,9 @@ class VhGraphEnv:
                 curr_room = object_script.instance
                 if not use_doors:
                     # If we dont consider doors, the final pos is the position of the room
-                    final_pos = self.id2node[object_script.instance]['bounding_box']['center']
+                    final_pos = self.id2node[object_script.instance]["bounding_box"][
+                        "center"
+                    ]
             else:
                 inside_obj = []
 
@@ -305,11 +311,11 @@ class VhGraphEnv:
                 except:
                     raise AssertionError
                 if (
-                    'GRABBABLE'
-                    not in self.id2node[object_script.instance]['properties']
+                    "GRABBABLE"
+                    not in self.id2node[object_script.instance]["properties"]
                 ):
-                    final_pos = self.id2node[object_script.instance]['bounding_box'][
-                        'center'
+                    final_pos = self.id2node[object_script.instance]["bounding_box"][
+                        "center"
                     ]
                 else:
                     final_pos = list(
@@ -323,13 +329,13 @@ class VhGraphEnv:
                     final_pos = [
                         index
                         for index in final_pos
-                        if 'GRABBABLE' not in self.id2node[index]['properties']
+                        if "GRABBABLE" not in self.id2node[index]["properties"]
                         and final_pos not in self.rooms_ids
                     ]
                     if len(close_char) > 0:
-                        final_pos = self.id2node[final_pos[0]]['bounding_box']['center']
+                        final_pos = self.id2node[final_pos[0]]["bounding_box"]["center"]
                     else:
-                        final_pos = self.id2node[curr_room]['bounding_box']['center']
+                        final_pos = self.id2node[curr_room]["bounding_box"]["center"]
 
                 is_obj = True
 
@@ -342,7 +348,9 @@ class VhGraphEnv:
                     raise AssertionError
 
             if len(doors) > 0:
-                doors_pos = [self.id2node[did]['bounding_box']['center'] for did in doors]
+                doors_pos = [
+                    self.id2node[did]["bounding_box"]["center"] for did in doors
+                ]
                 total_dist = distance(pos_char, doors_pos[0])
 
                 for did in range(1, len(doors)):
@@ -378,13 +386,13 @@ class VhGraphEnv:
 
     def _remove_house_obj(self, state):
         delete_ids = [
-            x['id'] for x in state['nodes'] if x['class_name'].lower() in self.house_obj
+            x["id"] for x in state["nodes"] if x["class_name"].lower() in self.house_obj
         ]
-        state['nodes'] = [x for x in state['nodes'] if x['id'] not in delete_ids]
-        state['edges'] = [
+        state["nodes"] = [x for x in state["nodes"] if x["id"] not in delete_ids]
+        state["edges"] = [
             x
-            for x in state['edges']
-            if x['from_id'] not in delete_ids and x['to_id'] not in delete_ids
+            for x in state["edges"]
+            if x["from_id"] not in delete_ids and x["to_id"] not in delete_ids
         ]
         return state
 
@@ -463,13 +471,12 @@ class VhGraphEnv:
         # return sum(progress_per_task) / float(len(progress_per_task))
 
     def transition(self, vh_state, scripts, do_assert=False):
-
         # print(scripts, self.observable_object_ids_n[0])
         if do_assert:
             if self.pomdp:
                 for i in range(self.n_chars):
-                    observable_nodes = self._mask_state(vh_state.to_dict(), i)['nodes']
-                    observable_object_ids = [node['id'] for node in observable_nodes]
+                    observable_nodes = self._mask_state(vh_state.to_dict(), i)["nodes"]
+                    observable_object_ids = [node["id"] for node in observable_nodes]
                     assert self._is_action_valid_sim(
                         scripts.get(i), observable_object_ids
                     )
@@ -482,7 +489,7 @@ class VhGraphEnv:
             script = read_script_from_string(script_string)
 
             touched_objs = vh_state.touched_objs
-            if '[offer]' in script_string:
+            if "[offer]" in script_string:
                 obj_id = script.obtain_objects()[0][1]
                 obj_grabbed_person = list(
                     vh_state.get_node_ids_from(obj_id, Relation.HOLDS_RH)
@@ -496,8 +503,7 @@ class VhGraphEnv:
                 else:
                     succeed = False
 
-            elif '[touch]' in script_string:
-
+            elif "[touch]" in script_string:
                 succeed, next_vh_state = self.executor_n[i].execute_one_step(
                     script, vh_state
                 )
@@ -505,17 +511,16 @@ class VhGraphEnv:
                 obj_id = script.obtain_objects()[0][1]
                 next_vh_state.touch_object(obj_id)
             else:
-
                 try:
                     succeed, next_vh_state = self.executor_n[i].execute_one_step(
-                            script, vh_state, in_place=True
+                        script, vh_state, in_place=True
                     )
                 except:
                     raise AssertionError
                 next_vh_state = init_from_state(
                     next_vh_state, touched_objs, vh_state.offer_obj
                 )
-                if script[0].action.name in ['GRAB', 'PUTBACK', 'PUTIN', 'PUTOBJBACK']:
+                if script[0].action.name in ["GRAB", "PUTBACK", "PUTIN", "PUTOBJBACK"]:
                     # inside_obj += curr_inside_obj
                     obj_id = script.obtain_objects()[0][1]
                     next_vh_state.remove_obj_offer(obj_id)
@@ -533,25 +538,25 @@ class VhGraphEnv:
 
         # Remove touched state
         touched_objs = []
-        for node in state['nodes']:
-            if 'TOUCHED' in node['states']:
-                touched_objs.append(node['id'])
-                node['states'] = [st for st in node['states'] if st != 'TOUCHED']
+        for node in state["nodes"]:
+            if "TOUCHED" in node["states"]:
+                touched_objs.append(node["id"])
+                node["states"] = [st for st in node["states"] if st != "TOUCHED"]
         env = EnvironmentState(
             EnvironmentGraph(state),
             self.name_equivalence,
             instance_selection=True,
             touched_objs=touched_objs,
         )
-        for node in state['nodes']:
-            if node['id'] in touched_objs:
-                node['states'].append('TOUCHED')
+        for node in state["nodes"]:
+            if node["id"] in touched_objs:
+                node["states"].append("TOUCHED")
         return env
 
     def fill_missing_states(self, state):
-        for node in state['nodes']:
-            object_name = node['class_name']
-            states_graph_old = node['states']
+        for node in state["nodes"]:
+            object_name = node["class_name"]
+            states_graph_old = node["states"]
             bin_vars = self.graph_helper.get_object_binary_variables(object_name)
             bin_vars_missing = [
                 x
@@ -559,10 +564,10 @@ class VhGraphEnv:
                 if x.positive not in states_graph_old
                 and x.negative not in states_graph_old
             ]
-            print(node['class_name'], [x.default for x in bin_vars_missing])
+            print(node["class_name"], [x.default for x in bin_vars_missing])
             states_graph = states_graph_old + [x.default for x in bin_vars_missing]
             # fill out the rest of info regarding the states
-            node['states'] = states_graph
+            node["states"] = states_graph
 
     # TODO: Now the random function doesn't align with the manually set seed
     # task_goals_n is a list of list that represents the goals of every agent
@@ -572,8 +577,8 @@ class VhGraphEnv:
         state = self._remove_house_obj(state)
 
         # Fill out the missing states
-        #self.fill_missing_states(state)
-        #ipdb.set_trace()
+        # self.fill_missing_states(state)
+        # ipdb.set_trace()
         for i in range(self.n_chars):
             self.executor = ScriptExecutor(
                 EnvironmentGraph(state), self.name_equivalence, i
@@ -581,7 +586,7 @@ class VhGraphEnv:
 
         self.character_n = [None for i in range(self.n_chars)]
         chars = [node for node in state["nodes"] if node["category"] == "Characters"]
-        chars.sort(key=lambda node: node['id'])
+        chars.sort(key=lambda node: node["id"])
 
         self.character_n = chars
 
@@ -591,7 +596,7 @@ class VhGraphEnv:
                 self.rooms.append(node)
         self.rooms_ids = [n["id"] for n in self.rooms]
         self.state = state
-        self.id2node = {node['id']: node for node in state['nodes']}
+        self.id2node = {node["id"]: node for node in state["nodes"]}
         self.vh_state = self.get_vh_state(state)
 
         ############ Reward ############
@@ -601,17 +606,16 @@ class VhGraphEnv:
         ]
         self.observable_state_n = observable_state_n
         self.observable_object_ids_n = [
-            [node['id'] for node in obs_state['nodes']]
+            [node["id"] for node in obs_state["nodes"]]
             for obs_state in observable_state_n
         ]
 
         return observable_state_n
 
-    def render(self, mode='human', close=False):
+    def render(self, mode="human", close=False):
         return
 
     def _is_action_valid(self, string: str, char_index):
-
         script = read_script_from_string(string)
 
         valid = True
@@ -640,7 +644,6 @@ class VhGraphEnv:
         return True, None
 
     def _is_action_valid_sim(self, string: str, observable_object_ids):
-
         script = read_script_from_string(string)
 
         valid = True
@@ -665,14 +668,14 @@ class VhGraphEnv:
 
         if vh_state is None:
             vh_state = self.vh_state
-            nodes = self.observable_state_n[char_index]['nodes']
+            nodes = self.observable_state_n[char_index]["nodes"]
         else:
-            nodes = self._mask_state(vh_state.to_dict(), char_index)['nodes']
-        node_ids = [x['id'] for x in nodes]
+            nodes = self._mask_state(vh_state.to_dict(), char_index)["nodes"]
+        node_ids = [x["id"] for x in nodes]
 
         action_executors = self.executor_n[char_index]._action_executors
 
-        if obj1 is not None and obj1['id'] not in node_ids:
+        if obj1 is not None and obj1["id"] not in node_ids:
             return []
 
         action_list = []
@@ -700,7 +703,7 @@ class VhGraphEnv:
 
                 # remove character from candidates
                 node_candidates = [
-                    x for x in node_candidates if x['class_name'] != 'character'
+                    x for x in node_candidates if x["class_name"] != "character"
                 ]
 
                 # if obj1 is not None and obj1['id'] == 2038:
@@ -709,7 +712,7 @@ class VhGraphEnv:
                 for node in node_candidates:
                     if (
                         len(properties_params) == 0
-                        or len(set(node['properties']).intersection(properties_params))
+                        or len(set(node["properties"]).intersection(properties_params))
                         > 0
                     ):
                         objects[param].append(node)
@@ -721,7 +724,7 @@ class VhGraphEnv:
                 obj_cand_list = list(obj_candidates)
                 string_instr = self.obtain_formatted_action(action, obj_cand_list)
                 action_list_tuple = [action] + obj_cand_list
-                if action in ['Walk', 'Find', 'Run']:
+                if action in ["Walk", "Find", "Run"]:
                     succeed = True
                 else:
                     script = read_script_from_string(string_instr)
@@ -741,16 +744,16 @@ class VhGraphEnv:
 
     def obtain_formatted_action(self, action, obj_cand_list, debug=False):
         if len(obj_cand_list) == 0:
-            return '[{}]'.format(action)
+            return "[{}]".format(action)
         if debug:
             raise AssertionError
-        obj_list = ' '.join(
+        obj_list = " ".join(
             [
-                '<{}> ({})'.format(node_obj['class_name'], node_obj['id'])
+                "<{}> ({})".format(node_obj["class_name"], node_obj["id"])
                 for node_obj in obj_cand_list
             ]
         )
-        string_instr = '[{}] {}'.format(action, obj_list)
+        string_instr = "[{}] {}".format(action, obj_list)
         return string_instr
 
     def _mask_state(self, state, char_index):
@@ -758,23 +761,21 @@ class VhGraphEnv:
         character = self.character_n[char_index]
         # find character
         character_id = character["id"]
-        id2node = {node['id']: node for node in state['nodes']}
+        id2node = {node["id"]: node for node in state["nodes"]}
         inside_of, is_inside, edge_from = {}, {}, {}
 
         grabbed_ids = []
-        for edge in state['edges']:
+        for edge in state["edges"]:
+            if edge["relation_type"] == "INSIDE":
+                if edge["to_id"] not in is_inside.keys():
+                    is_inside[edge["to_id"]] = []
 
-            if edge['relation_type'] == 'INSIDE':
+                is_inside[edge["to_id"]].append(edge["from_id"])
+                inside_of[edge["from_id"]] = edge["to_id"]
 
-                if edge['to_id'] not in is_inside.keys():
-                    is_inside[edge['to_id']] = []
-
-                is_inside[edge['to_id']].append(edge['from_id'])
-                inside_of[edge['from_id']] = edge['to_id']
-
-            elif 'HOLDS' in edge['relation_type']:
-                if edge['from_id'] == character['id']:
-                    grabbed_ids.append(edge['to_id'])
+            elif "HOLDS" in edge["relation_type"]:
+                if edge["from_id"] == character["id"]:
+                    grabbed_ids.append(edge["to_id"])
 
         character_inside_ids = inside_of[character_id]
         room_id = character_inside_ids
@@ -798,7 +799,7 @@ class VhGraphEnv:
         # TODO: this can be probably speed up if we can ensure that all objects are either closed or open
         object_hidden = (
             lambda ido: inside_of[ido] not in self.rooms_ids
-            and 'OPEN' not in id2node[inside_of[ido]]['states']
+            and "OPEN" not in id2node[inside_of[ido]]["states"]
         )
         observable_object_ids = [
             object_id
@@ -810,9 +811,9 @@ class VhGraphEnv:
         partilly_observable_state = {
             "edges": [
                 edge
-                for edge in state['edges']
-                if edge['from_id'] in observable_object_ids
-                and edge['to_id'] in observable_object_ids
+                for edge in state["edges"]
+                if edge["from_id"] in observable_object_ids
+                and edge["to_id"] in observable_object_ids
             ],
             "nodes": [id2node[id_node] for id_node in observable_object_ids],
         }
@@ -826,7 +827,6 @@ class VhGraphEnv:
         return None
 
     def _filter_edge(self, state, filter):
-
         target = []
         for edge in state["edges"]:
             if filter(edge):
@@ -835,7 +835,6 @@ class VhGraphEnv:
         return target if len(target) > 0 else None
 
     def _filter_node(self, state, filter):
-
         target = []
         for node in state["nodes"]:
             if filter(node):
@@ -844,7 +843,6 @@ class VhGraphEnv:
         return target if len(target) > 0 else None
 
     def _find_targets(self, state, from_id, relation, to_id):
-
         assert sum([from_id == None, relation == None, to_id == None]) <= 1
 
         target = []
@@ -861,7 +859,6 @@ class VhGraphEnv:
         return target if len(target) > 0 else None
 
     def __str__(self):
-
         s = ""
         for i in range(self.n_chars):
             s += "Character {}".format(self.character_n[i]["id"]) + "\n"

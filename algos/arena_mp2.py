@@ -1,12 +1,14 @@
-import random
-import cv2
-import logging
+import atexit
 import copy
-import numpy as np
-from tqdm import tqdm
+import logging
+import random
 import time
 import traceback
-import atexit
+
+import cv2
+import numpy as np
+from tqdm import tqdm
+
 
 # @ray.remote
 class ArenaMP(object):
@@ -60,7 +62,7 @@ class ArenaMP(object):
         print(ob.keys(), self.num_agents)
 
         for it, agent in enumerate(self.agents):
-            if 'MCTS' in agent.agent_type or 'Random' in agent.agent_type:
+            if "MCTS" in agent.agent_type or "Random" in agent.agent_type:
                 agent.reset(
                     ob[it], self.env.full_graph, self.env.task_goal, seed=agent.seed
                 )
@@ -79,7 +81,7 @@ class ArenaMP(object):
 
     def set_weigths(self, epsilon, weights):
         for agent in self.agents:
-            if 'RL' in agent.agent_type:
+            if "RL" in agent.agent_type:
                 agent.epsilon = epsilon
                 agent.actor_critic.load_state_dict(weights)
 
@@ -115,7 +117,7 @@ class ArenaMP(object):
             else:
                 goal_spec = self.env.get_goal2(inferred_goal, self.env.agent_goals[it])
             # ipdb.set_trace()
-            if agent.agent_type in ['MCTS', 'Random']:
+            if agent.agent_type in ["MCTS", "Random"]:
                 # opponent_subgoal = None
                 # if agent.recursive:
                 #     opponent_subgoal = self.agents[1 - it].last_subgoal
@@ -127,16 +129,16 @@ class ArenaMP(object):
                     length_plan=length_plan,
                     must_replan=False if must_replan is None else must_replan[it],
                 )
-                ind = it 
+                ind = it
                 curr_obs = obs
                 selected_actions = dict_actions
-                #if selected_actions[ind] is not None and 'grab' in selected_actions[ind] and '369' in selected_actions[ind]:
+                # if selected_actions[ind] is not None and 'grab' in selected_actions[ind] and '369' in selected_actions[ind]:
                 #    if len([edge for edge in curr_obs[ind]['edges'] if edge['from_id'] == 369 and edge['to_id'] == 103]) > 0:
                 #        print("Bad plan")
                 #        ipdb.set_trace()
 
-            elif 'RL' in agent.agent_type:
-                if 'MCTS' in agent.agent_type or 'Random' in agent.agent_type:
+            elif "RL" in agent.agent_type:
+                if "MCTS" in agent.agent_type or "Random" in agent.agent_type:
                     if true_graph:
                         full_graph = self.env.get_graph()
                     else:
@@ -187,7 +189,7 @@ class ArenaMP(object):
             else:
                 goal_spec = self.env.get_goal2(inferred_goal, self.env.agent_goals[it])
             # ipdb.set_trace()
-            if agent.agent_type in ['MCTS', 'Random']:
+            if agent.agent_type in ["MCTS", "Random"]:
                 # opponent_subgoal = None
                 # if agent.recursive:
                 #     opponent_subgoal = self.agents[1 - it].last_subgoal
@@ -203,8 +205,8 @@ class ArenaMP(object):
                     must_replan=False if must_replan is None else must_replan[it],
                 )
 
-            elif 'RL' in agent.agent_type:
-                if 'MCTS' in agent.agent_type or 'Random' in agent.agent_type:
+            elif "RL" in agent.agent_type:
+                if "MCTS" in agent.agent_type or "Random" in agent.agent_type:
                     if true_graph:
                         full_graph = self.env.get_graph()
                     else:
@@ -240,7 +242,7 @@ class ArenaMP(object):
             self.env = self.env_fn(self.arena_id)
 
             for agent in self.agents:
-                if 'RL' in agent.agent_type:
+                if "RL" in agent.agent_type:
                     prev_eps = agent.epsilon
                     prev_weights = agent.actor_critic.state_dict()
 
@@ -281,68 +283,68 @@ class ArenaMP(object):
             self.task_goal = None
 
         if logging > 0:
-            info_rollout['pred_goal'] = []
-            info_rollout['pred_close'] = []
-            info_rollout['gt_goal'] = []
-            info_rollout['gt_close'] = []
-            info_rollout['mask_nodes'] = []
+            info_rollout["pred_goal"] = []
+            info_rollout["pred_close"] = []
+            info_rollout["gt_goal"] = []
+            info_rollout["gt_close"] = []
+            info_rollout["mask_nodes"] = []
 
         if logging > 1:
-            info_rollout['step_info'] = []
-            info_rollout['action'] = {0: [], 1: []}
-            info_rollout['script'] = []
-            info_rollout['graph'] = []
-            info_rollout['action_space_ids'] = []
-            info_rollout['visible_ids'] = []
-            info_rollout['action_tried'] = []
-            info_rollout['predicate'] = []
-            info_rollout['reward'] = []
-            info_rollout['goals_finished'] = []
-            info_rollout['obs'] = []
+            info_rollout["step_info"] = []
+            info_rollout["action"] = {0: [], 1: []}
+            info_rollout["script"] = []
+            info_rollout["graph"] = []
+            info_rollout["action_space_ids"] = []
+            info_rollout["visible_ids"] = []
+            info_rollout["action_tried"] = []
+            info_rollout["predicate"] = []
+            info_rollout["reward"] = []
+            info_rollout["goals_finished"] = []
+            info_rollout["obs"] = []
 
         rollout_agent = {}
 
         for agent_id in range(self.num_agents):
             agent = self.agents[agent_id]
-            if 'RL' in agent.agent_type:
+            if "RL" in agent.agent_type:
                 rollout_agent[agent_id] = []
 
         if logging:
             init_graph = self.env.get_graph()
             pred = self.env.goal_spec[0]
-            goal_class = [elem_name.split('_')[1] for elem_name in list(pred.keys())]
-            id2node = {node['id']: node for node in init_graph['nodes']}
+            goal_class = [elem_name.split("_")[1] for elem_name in list(pred.keys())]
+            id2node = {node["id"]: node for node in init_graph["nodes"]}
             info_goals = []
             info_goals.append(
                 [
                     node
-                    for node in init_graph['nodes']
-                    if node['class_name'] in goal_class
+                    for node in init_graph["nodes"]
+                    if node["class_name"] in goal_class
                 ]
             )
             ids_target = [
-                node['id']
-                for node in init_graph['nodes']
-                if node['class_name'] in goal_class
+                node["id"]
+                for node in init_graph["nodes"]
+                if node["class_name"] in goal_class
             ]
             info_goals.append(
                 [
                     (
-                        id2node[edge['to_id']]['class_name'],
-                        edge['to_id'],
-                        edge['relation_type'],
-                        edge['from_id'],
+                        id2node[edge["to_id"]]["class_name"],
+                        edge["to_id"],
+                        edge["relation_type"],
+                        edge["from_id"],
                     )
-                    for edge in init_graph['edges']
-                    if edge['from_id'] in ids_target
+                    for edge in init_graph["edges"]
+                    if edge["from_id"] in ids_target
                 ]
             )
-            info_rollout['target'] = [pred, info_goals]
+            info_rollout["target"] = [pred, info_goals]
 
         agent_id = [
             id
             for id, enum_agent in enumerate(self.agents)
-            if 'RL' in enum_agent.agent_type
+            if "RL" in enum_agent.agent_type
         ][0]
         reward_step = 0
         prev_reward_step = 0
@@ -360,85 +362,85 @@ class ArenaMP(object):
             (obs, reward, done, env_info), agent_actions, agent_info = self.step(
                 true_graph=is_train
             )
-            step_failed = env_info['failed_exec']
+            step_failed = env_info["failed_exec"]
             if step_failed:
                 print("FAILING in task")
                 print(agent_actions)
                 print(local_rollout_actions)
-                print('----')
+                print("----")
             # print(agent_actions[agent_id], reward)
             local_rollout_actions.append(agent_actions[0])
             if not is_train:
                 pbar.update(1)
             if logging:
-                curr_graph = env_info['graph']
+                curr_graph = env_info["graph"]
                 agentindex = self.agents[agent_id].agent_id
-                observed_nodes = agent_info[agent_id]['visible_ids']
+                observed_nodes = agent_info[agent_id]["visible_ids"]
                 # pdb.set_trace()
                 node_id = [
-                    node['bounding_box']
-                    for node in obs[agent_id]['nodes']
-                    if node['id'] == agentindex
+                    node["bounding_box"]
+                    for node in obs[agent_id]["nodes"]
+                    if node["id"] == agentindex
                 ][0]
                 edges_char = [
                     (
-                        id2node[edge['to_id']]['class_name'],
-                        edge['to_id'],
-                        edge['relation_type'],
+                        id2node[edge["to_id"]]["class_name"],
+                        edge["to_id"],
+                        edge["relation_type"],
                     )
-                    for edge in curr_graph['edges']
-                    if edge['from_id'] == agentindex and edge['to_id'] in observed_nodes
+                    for edge in curr_graph["edges"]
+                    if edge["from_id"] == agentindex and edge["to_id"] in observed_nodes
                 ]
 
                 if logging > 0:
-                    if 'pred_goal' in agent_info[agent_id].keys():
-                        info_rollout['pred_goal'].append(
-                            agent_info[agent_id]['pred_goal']
+                    if "pred_goal" in agent_info[agent_id].keys():
+                        info_rollout["pred_goal"].append(
+                            agent_info[agent_id]["pred_goal"]
                         )
-                        info_rollout['pred_close'].append(
-                            agent_info[agent_id]['pred_close']
+                        info_rollout["pred_close"].append(
+                            agent_info[agent_id]["pred_close"]
                         )
-                        info_rollout['gt_goal'].append(agent_info[agent_id]['gt_goal'])
-                        info_rollout['gt_close'].append(
-                            agent_info[agent_id]['gt_close']
+                        info_rollout["gt_goal"].append(agent_info[agent_id]["gt_goal"])
+                        info_rollout["gt_close"].append(
+                            agent_info[agent_id]["gt_close"]
                         )
-                        info_rollout['mask_nodes'].append(
-                            agent_info[agent_id]['mask_nodes']
+                        info_rollout["mask_nodes"].append(
+                            agent_info[agent_id]["mask_nodes"]
                         )
 
                 if logging > 1:
-                    info_rollout['step_info'].append((node_id, edges_char))
-                    info_rollout['script'].append(agent_actions[agent_id])
-                    info_rollout['goals_finished'].append(env_info['satisfied_goals'])
-                    info_rollout['finished'] = env_info['finished']
+                    info_rollout["step_info"].append((node_id, edges_char))
+                    info_rollout["script"].append(agent_actions[agent_id])
+                    info_rollout["goals_finished"].append(env_info["satisfied_goals"])
+                    info_rollout["finished"] = env_info["finished"]
 
                     # pdb.set_trace()
                     for agenti in range(len(self.agents)):
-                        info_rollout['action'][agenti].append(agent_actions[agenti])
-                        info_rollout['obs'].append(agent_info[agenti]['obs'])
+                        info_rollout["action"][agenti].append(agent_actions[agenti])
+                        info_rollout["obs"].append(agent_info[agenti]["obs"])
 
-                    info_rollout['action_tried'].append(
-                        agent_info[agent_id]['action_tried']
+                    info_rollout["action_tried"].append(
+                        agent_info[agent_id]["action_tried"]
                     )
-                    if 'predicate' in agent_info[agent_id]:
-                        info_rollout['predicate'].append(
-                            agent_info[agent_id]['predicate']
+                    if "predicate" in agent_info[agent_id]:
+                        info_rollout["predicate"].append(
+                            agent_info[agent_id]["predicate"]
                         )
-                    info_rollout['graph'].append(curr_graph)
-                    info_rollout['action_space_ids'].append(
-                        agent_info[agent_id]['action_space_ids']
+                    info_rollout["graph"].append(curr_graph)
+                    info_rollout["action_space_ids"].append(
+                        agent_info[agent_id]["action_space_ids"]
                     )
-                    info_rollout['visible_ids'].append(
-                        agent_info[agent_id]['visible_ids']
+                    info_rollout["visible_ids"].append(
+                        agent_info[agent_id]["visible_ids"]
                     )
-                    info_rollout['reward'].append(reward)
+                    info_rollout["reward"].append(reward)
 
             nb_steps += 1
             curr_num_steps += 1
             diff_reward = reward - prev_reward
             prev_reward = reward
             reward_step += diff_reward
-            if 'bad_predicate' in agent_info[agent_id]:
+            if "bad_predicate" in agent_info[agent_id]:
                 reward_step -= 0.2
                 # pdb.set_trace()
 
@@ -454,32 +456,32 @@ class ArenaMP(object):
             if is_train:
                 for agent_id in range(self.num_agents):
                     if (
-                        'RL' == self.agents[agent_id].agent_type
-                        or self.agents[agent_id].agent_type == 'RL_MCTS'
-                        and 'mcts_action' not in agent_info[agent_id]
+                        "RL" == self.agents[agent_id].agent_type
+                        or self.agents[agent_id].agent_type == "RL_MCTS"
+                        and "mcts_action" not in agent_info[agent_id]
                     ):
                         init_step_agent_info[agent_id] = agent_info[agent_id]
 
                     # If this is the end of the action
                     if (
-                        'RL' == self.agents[agent_id].agent_type
-                        or self.agents[agent_id].agent_type == 'RL_MCTS'
+                        "RL" == self.agents[agent_id].agent_type
+                        or self.agents[agent_id].agent_type == "RL_MCTS"
                         and self.agents[agent_id].action_count == 0
                     ):
                         agent_steps += 1
-                        state = init_step_agent_info[agent_id]['state_inputs']
+                        state = init_step_agent_info[agent_id]["state_inputs"]
                         policy = [
                             log_prob.data
-                            for log_prob in init_step_agent_info[agent_id]['probs']
+                            for log_prob in init_step_agent_info[agent_id]["probs"]
                         ]
-                        action = agent_info[agent_id]['actions']
+                        action = agent_info[agent_id]["actions"]
                         rewards = reward_step
                         entropy_action.append(
                             -(
                                 (
-                                    init_step_agent_info[agent_id]['probs'][0] + 1e-9
+                                    init_step_agent_info[agent_id]["probs"][0] + 1e-9
                                 ).log()
-                                * init_step_agent_info[agent_id]['probs'][0]
+                                * init_step_agent_info[agent_id]["probs"][0]
                             )
                             .sum()
                             .item()
@@ -487,18 +489,18 @@ class ArenaMP(object):
                         entropy_object.append(
                             -(
                                 (
-                                    init_step_agent_info[agent_id]['probs'][1] + 1e-9
+                                    init_step_agent_info[agent_id]["probs"][1] + 1e-9
                                 ).log()
-                                * init_step_agent_info[agent_id]['probs'][1]
+                                * init_step_agent_info[agent_id]["probs"][1]
                             )
                             .sum()
                             .item()
                         )
                         observation_space.append(
-                            init_step_agent_info[agent_id]['num_objects']
+                            init_step_agent_info[agent_id]["num_objects"]
                         )
                         action_space.append(
-                            init_step_agent_info[agent_id]['num_objects_action']
+                            init_step_agent_info[agent_id]["num_objects_action"]
                         )
                         last_agent_info = init_step_agent_info
 
@@ -522,23 +524,23 @@ class ArenaMP(object):
             pbar.close()
         t_steps = time.time() - t2
         for agent_index in agent_info.keys():
-            success_r_all[agent_index] = env_info['finished']
+            success_r_all[agent_index] = env_info["finished"]
 
-        info_rollout['success'] = success_r_all[0]
-        info_rollout['nsteps'] = nb_steps
-        info_rollout['epsilon'] = self.agents[agent_id].epsilon
-        info_rollout['entropy'] = (entropy_action, entropy_object)
-        info_rollout['observation_space'] = np.mean(observation_space)
-        info_rollout['action_space'] = np.mean(action_space)
-        info_rollout['t_reset'] = t_reset
-        info_rollout['t_steps'] = t_steps
+        info_rollout["success"] = success_r_all[0]
+        info_rollout["nsteps"] = nb_steps
+        info_rollout["epsilon"] = self.agents[agent_id].epsilon
+        info_rollout["entropy"] = (entropy_action, entropy_object)
+        info_rollout["observation_space"] = np.mean(observation_space)
+        info_rollout["action_space"] = np.mean(action_space)
+        info_rollout["t_reset"] = t_reset
+        info_rollout["t_steps"] = t_steps
 
         # pdb.set_trace()
         for agent_index in agent_info.keys():
-            success_r_all[agent_index] = env_info['finished']
+            success_r_all[agent_index] = env_info["finished"]
 
-        info_rollout['env_id'] = self.env.env_id
-        info_rollout['goals'] = list(self.env.task_goal[0].keys())
+        info_rollout["env_id"] = self.env.env_id
+        info_rollout["goals"] = list(self.env.task_goal[0].keys())
         # padding
         # TODO: is this correct? Padding that is valid?
 
@@ -548,15 +550,15 @@ class ArenaMP(object):
             while nb_steps < self.max_number_steps:
                 nb_steps += 1
                 for agent_id in range(self.num_agents):
-                    if 'RL' in self.agents[agent_id].agent_type:
-                        state = last_agent_info[agent_id]['state_inputs']
-                        if 'edges' in obs.keys():
+                    if "RL" in self.agents[agent_id].agent_type:
+                        state = last_agent_info[agent_id]["state_inputs"]
+                        if "edges" in obs.keys():
                             raise AssertionError
                         policy = [
                             log_prob.data
-                            for log_prob in last_agent_info[agent_id]['probs']
+                            for log_prob in last_agent_info[agent_id]["probs"]
                         ]
-                        action = last_agent_info[agent_id]['actions']
+                        action = last_agent_info[agent_id]["actions"]
                         # rewards = reward
                         rollout_agent[agent_id].append(
                             (
@@ -573,7 +575,6 @@ class ArenaMP(object):
         return c_r_all, info_rollout, rollout_agent
 
     def step(self, true_graph=False):
-
         if self.env.steps == 0:
             pass
             # self.env.changed_graph = True
@@ -601,8 +602,7 @@ class ArenaMP(object):
         except:
             raise utils_exception.UnityException
 
-
-        script_exec = step_info[-1]['executed_script']
+        script_exec = step_info[-1]["executed_script"]
         for index_agent in actionss:
             if index_agent not in script_exec:
                 self.agents[0].failed_action = True
@@ -623,21 +623,21 @@ class ArenaMP(object):
             self.task_goal = copy.deepcopy(pred_goal)
 
         saved_info = {
-            'task_id': self.env.task_id,
-            'env_id': self.env.env_id,
-            'task_name': self.env.task_name,
-            'gt_goals': self.env.task_goal[0],
-            'goals': self.task_goal,
-            'action': {0: [], 1: []},
-            'plan': {0: [], 1: []},
-            'finished': None,
-            'init_unity_graph': self.env.init_graph,
-            'goals_finished': [],
-            'belief': {0: [], 1: []},
-            'belief_room': {0: [], 1: []},
-            'belief_graph': {0: [], 1: []},
-            'graph': [self.env.init_unity_graph],
-            'obs': [],
+            "task_id": self.env.task_id,
+            "env_id": self.env.env_id,
+            "task_name": self.env.task_name,
+            "gt_goals": self.env.task_goal[0],
+            "goals": self.task_goal,
+            "action": {0: [], 1: []},
+            "plan": {0: [], 1: []},
+            "finished": None,
+            "init_unity_graph": self.env.init_graph,
+            "goals_finished": [],
+            "belief": {0: [], 1: []},
+            "belief_room": {0: [], 1: []},
+            "belief_graph": {0: [], 1: []},
+            "graph": [self.env.init_unity_graph],
+            "obs": [],
         }
 
         success = False
@@ -649,17 +649,17 @@ class ArenaMP(object):
         prev_agent_position = np.array([0, 0, 0]).astype(np.float32)
         while True:
             if save_img is not None:
-                img_info = {'image_width': 224, 'image_height': 224}
-                obs = self.env.get_observation(0, 'image', info=img_info)
-                cv2.imwrite('{}/img_{:04d}.png'.format(save_img, step), obs)
+                img_info = {"image_width": 224, "image_height": 224}
+                obs = self.env.get_observation(0, "image", info=img_info)
+                cv2.imwrite("{}/img_{:04d}.png".format(save_img, step), obs)
             step += 1
             (obs, reward, done, infos), actions, agent_info = self.step()
             # ipdb.set_trace()
             new_agent_position = np.array(
-                list(infos['graph']['nodes'][0]['bounding_box']['center'])
+                list(infos["graph"]["nodes"][0]["bounding_box"]["center"])
             ).astype(np.float32)
             distance = np.linalg.norm(new_agent_position - prev_agent_position)
-            step_failed = infos['failed_exec']
+            step_failed = infos["failed_exec"]
             if actions[0] == prev_action:
                 num_repeated += 1
                 if distance < 0.3:
@@ -682,31 +682,31 @@ class ArenaMP(object):
             # print("Goals:", self.env.task_goal)
             print("Action: ", actions, new_agent_position)
             prev_agent_position = new_agent_position
-            logging.info(' | '.join(actions.values()))
-            print("Plan:", agent_info[0]['plan'][:4])
+            logging.info(" | ".join(actions.values()))
+            print("Plan:", agent_info[0]["plan"][:4])
             print("----------")
-            success = infos['finished']
-            if 'satisfied_goals' in infos:
-                saved_info['goals_finished'].append(infos['satisfied_goals'])
+            success = infos["finished"]
+            if "satisfied_goals" in infos:
+                saved_info["goals_finished"].append(infos["satisfied_goals"])
             for agent_id, action in actions.items():
-                saved_info['action'][agent_id].append(action)
+                saved_info["action"][agent_id].append(action)
 
-            if 'graph' in infos:
-                saved_info['graph'].append(infos['graph'])
+            if "graph" in infos:
+                saved_info["graph"].append(infos["graph"])
 
             for agent_id, info in agent_info.items():
                 # if 'belief_graph' in info:
                 #    saved_info['belief_graph'][agent_id].append(info['belief_graph'])
                 if self.save_belief:
-                    if 'belief_room' in info:
-                        saved_info['belief_room'][agent_id].append(info['belief_room'])
-                    if 'belief' in info:
-                        saved_info['belief'][agent_id].append(info['belief'])
-                if 'plan' in info:
-                    saved_info['plan'][agent_id].append(info['plan'][:3])
-                if 'obs' in info:
+                    if "belief_room" in info:
+                        saved_info["belief_room"][agent_id].append(info["belief_room"])
+                    if "belief" in info:
+                        saved_info["belief"][agent_id].append(info["belief"])
+                if "plan" in info:
+                    saved_info["plan"][agent_id].append(info["plan"][:3])
+                if "obs" in info:
                     # print("TEST", len(info['obs']), len(saved_info['graph'][-2]['nodes']))
-                    saved_info['obs'].append([node['id'] for node in info['obs']])
+                    saved_info["obs"].append([node["id"] for node in info["obs"]])
                     # print([node['states'] for node in info['obs'] if node['id'] == 103])
                     # ipdb.set_trace()
                 # if len(saved_info['obs']) > 1 and set(saved_info['obs'][0]) != set(saved_info['obs'][1]):
@@ -717,9 +717,9 @@ class ArenaMP(object):
                 break
             self.saved_info = saved_info
 
-        saved_info['obs'].append([node['id'] for node in obs[0]['nodes']])
+        saved_info["obs"].append([node["id"] for node in obs[0]["nodes"]])
         # saved_info['obs'].append()
 
-        saved_info['finished'] = success
+        saved_info["finished"] = success
         self.saved_info = saved_info
         return success, self.env.steps, saved_info

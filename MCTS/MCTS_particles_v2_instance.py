@@ -1,12 +1,14 @@
-import random
-import numpy as np
-from envs.graph_env import VhGraphEnv
-from anytree import AnyNode as Node
 import copy
+import random
+
+import numpy as np
+from anytree import AnyNode as Node
 from termcolor import colored
 from tqdm import tqdm
+from virtualhome.simulation.evolving_graph.environment import Relation
+
+from envs.graph_env import VhGraphEnv
 from utils import utils_environment as utils_env
-from evolving_graph.environment import Relation
 
 
 class MCTS_particles_v2_instance:
@@ -64,7 +66,6 @@ class MCTS_particles_v2_instance:
                 count += value
         id2node = self.id2node
         class2id = self.class2id
-
 
         for key, value in goal_spec.items():
             elements = key.split("_")
@@ -128,7 +129,7 @@ class MCTS_particles_v2_instance:
         self.env.pomdp = True
         self.env.reset(copy.deepcopy(self.gt_graph))
         self.build_class2id()
-        if not self.env.state is None:
+        if self.env.state is not None:
             self.id2node_env = {node["id"]: node for node in self.env.state["nodes"]}
             static_classes = [
                 "bathroomcabinet",
@@ -179,7 +180,6 @@ class MCTS_particles_v2_instance:
                 and explore_step > 0
                 and self.any_verbose
             ):
-
                 self.verbose = True
             else:
                 self.verbose = False
@@ -297,7 +297,6 @@ class MCTS_particles_v2_instance:
             #     ipdb.set_trace()
             # TODO: is this _Correct
             if double_put:
-                
                 if self.verbose:
                     raise AssertionError
                 raise Exception
@@ -310,7 +309,6 @@ class MCTS_particles_v2_instance:
             # print(colored("Finish select", "yellow"))
 
             if explore_step % 198 == 0 and explore_step > 0:
-
                 # self.verbose = True
                 pass
                 # ipdb.set_trace()
@@ -326,7 +324,6 @@ class MCTS_particles_v2_instance:
         if self.verbose:
             raise AssertionError
         while curr_root.is_expanded and len(curr_root.children) > 0:
-
             actions_taken, children_visit, next_root = self.select_next_root(curr_root)
             curr_root = next_root
             root_path.append(curr_root)
@@ -376,7 +373,7 @@ class MCTS_particles_v2_instance:
         if len(plan) == 0:
             if self.agent_id == 1:
                 pass
-                
+
                 # ipdb.set_trace()
                 # value, reward_rollout, actions_rollout = self.rollout(
                 #     leaf_node, tmp_t + it, curr_state, last_reward, verbose=True
@@ -403,7 +400,6 @@ class MCTS_particles_v2_instance:
         for rollout_step in range(
             self.max_rollout_step
         ):  # min(self.max_rollout_step, self.max_episode_length - t)):
-
             # If you have an object grabbed already reduce the subgoal space search and add the object you already had
             hands_busy = [
                 edge["to_id"]
@@ -434,7 +430,9 @@ class MCTS_particles_v2_instance:
                 if pred_name_selected is not None:
                     cont_id = goal_spec[pred_name_selected]["container_ids"][0]
                     if pred_name_selected not in recover_unsatisfied:
-                        recover_unsatisfied[pred_name_selected] = unsatisfied_aux[pred_name_selected]
+                        recover_unsatisfied[pred_name_selected] = unsatisfied_aux[
+                            pred_name_selected
+                        ]
                     unsatisfied_aux[pred_name_selected] -= 1
                     # if unsatisfied_aux[pred_name_selected] < 0:
                     #     ipdb.set_trace()
@@ -463,7 +461,7 @@ class MCTS_particles_v2_instance:
             subgoals += subgoals_hand
             if verbose:
                 raise AssertionError
-        
+
             # print("Roll", len(subgoals))
             if len(subgoals) == 0:
                 subgoals_finished = True
@@ -492,7 +490,6 @@ class MCTS_particles_v2_instance:
                     subgoals = subgoals_putin
 
             if len(subgoals) == 0:
-
                 # ipdb.set_trace()
                 # raise Exception
                 return 0, [], []
@@ -508,15 +505,14 @@ class MCTS_particles_v2_instance:
 
             heuristic = self.heuristic_dict[goal_selected.split("_")[0]]
             actions, _, action_name = heuristic(
-                    self.agent_id,
-                    self.char_index,
-                    unsatisfied,
-                    curr_state,
-                    self.env,
-                    goal_selected,
+                self.agent_id,
+                self.char_index,
+                unsatisfied,
+                curr_state,
+                self.env,
+                goal_selected,
             )
             if verbose:
-                
                 raise AssertionError
                 actions, _, action_name = heuristic(
                     self.agent_id,
@@ -525,7 +521,7 @@ class MCTS_particles_v2_instance:
                     curr_state,
                     self.env,
                     goal_selected,
-                    True
+                    True,
                 )
                 raise AssertionError
             # print(actions)
@@ -557,7 +553,6 @@ class MCTS_particles_v2_instance:
                 total_reward = 0
                 step_vh_state = curr_vh_state
                 for action in actions:
-
                     action_str = self.get_action_str(action)
                     (
                         success,
@@ -622,7 +617,6 @@ class MCTS_particles_v2_instance:
         # TODO: this assumes a single action in transition, no joint planner
         action_index = list(action.keys())[0]
         if "walk" in action[action_index]:
-
             # measure distance, only between rooms
             objects_close = list(curr_vh_state.get_node_ids_from(1, Relation.CLOSE))
             current_room = list(curr_vh_state.get_node_ids_from(1, Relation.INSIDE))[0]
@@ -814,7 +808,6 @@ class MCTS_particles_v2_instance:
 
         next_vh_state = curr_state[0]
         if selected_child.state is None:
-
             # if len(actions) > 1 and '(2)' in actions[-2]:
             # print("New action", actions)
             next_vh_state = copy.deepcopy(next_vh_state)
@@ -1056,7 +1049,9 @@ class MCTS_particles_v2_instance:
             if pred_name_selected is not None:
                 cont_id = goal_spec[pred_name_selected]["container_ids"][0]
                 if pred_name_selected not in recover_unsatisfied:
-                    recover_unsatisfied[pred_name_selected] = unsatisfied[pred_name_selected]
+                    recover_unsatisfied[pred_name_selected] = unsatisfied[
+                        pred_name_selected
+                    ]
                 unsatisfied_aux[pred_name_selected] -= 1
 
                 # we should avoid using pred_name_split here
@@ -1164,7 +1159,6 @@ class MCTS_particles_v2_instance:
         #     ipdb.set_trace()
 
         for action, info_action in zip(actions_heuristic, act_all):
-
             # If I already expanded this child, no need to re-expand
             action_str = action
             if action_str in current_actions_children:
@@ -1325,11 +1319,9 @@ class MCTS_particles_v2_instance:
                         #     > 0
                         # )
                         if (
-                            tmp_predicate
-                            not in satisfied[predicate]
+                            tmp_predicate not in satisfied[predicate]
                             # and object_is_grabbed
                         ):
-
                             subgoal_space.append(
                                 [
                                     f"offer_{obj_id}_{index_offer}",
@@ -1351,7 +1343,6 @@ class MCTS_particles_v2_instance:
                     obj = elements[1]
                     surface = container_id  # assuming it is a graph node id
                     for node_id in obj_ids_grab:
-
                         tmp_predicate = "on_{}_{}".format(node_id, surface)
                         if tmp_predicate not in satisfied[predicate]:
                             tmp_subgoal = "{}_{}_{}".format(
@@ -1385,7 +1376,6 @@ class MCTS_particles_v2_instance:
                     obj = elements[1]
                     surface = container_id  # assuming it is a graph node id
                     for node_id in obj_ids_grab:
-
                         tmp_predicate = "inside_{}_{}".format(node_id, surface)
                         if tmp_predicate not in satisfied[predicate]:
                             tmp_subgoal = "{}_{}_{}".format(
@@ -1523,7 +1513,6 @@ class MCTS_particles_v2_instance:
                     obj = elements[1]
                     surface = container_id  # assuming it is a graph node id
                     for node_id in obj_ids_grab:
-
                         tmp_predicate = "inside_{}_{}".format(node["id"], surface)
                         if tmp_predicate not in satisfied[predicate]:
                             tmp_subgoal = "{}_{}_{}".format(
@@ -1597,7 +1586,6 @@ class MCTS_particles_v2_instance:
                         subgoal_type = "sit"
                         obj = elements[2]
                         for node_id in goal_spec_pred["container_ids"]:
-
                             tmp_predicate = "sit_{}_{}".format(1, node_id)
                             if tmp_predicate not in satisfied[predicate]:
                                 subgoal_space.append(

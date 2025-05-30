@@ -1,13 +1,16 @@
-import numpy as np
-import random
-import time
 import copy
 import multiprocessing as mp
+import random
+import time
 from functools import partial
-from . import belief
+
+import numpy as np
+
 from envs.graph_env import VhGraphEnv
-from MCTS.MCTS_particles_v2_instance import *
+from MCTS.MCTS_particles_v2_instance import MCTS_particles_v2_instance, Node
 from utils import utils_environment as utils_env
+
+from . import belief
 
 
 def find_heuristic(
@@ -15,17 +18,17 @@ def find_heuristic(
 ):
     # find_{index}
 
-    target = int(object_target.split('_')[-1])
+    target = int(object_target.split("_")[-1])
     observations = simulator.get_observations(env_graph, char_index=char_index)
-    id2node = {node['id']: node for node in env_graph['nodes']}
+    id2node = {node["id"]: node for node in env_graph["nodes"]}
     containerdict = {}
     hold = False
-    for edge in env_graph['edges']:
-        if edge['relation_type'] == 'INSIDE' and edge['from_id'] not in containerdict:
-            containerdict[edge['from_id']] = edge['to_id']
-        elif 'HOLDS' in edge['relation_type'] and agent_id == 1:  # only for main agent
-            containerdict[edge['to_id']] = edge['from_id']
-            if edge['to_id'] == target:
+    for edge in env_graph["edges"]:
+        if edge["relation_type"] == "INSIDE" and edge["from_id"] not in containerdict:
+            containerdict[edge["from_id"]] = edge["to_id"]
+        elif "HOLDS" in edge["relation_type"] and agent_id == 1:  # only for main agent
+            containerdict[edge["to_id"]] = edge["from_id"]
+            if edge["to_id"] == target:
                 hold = True
 
     # containerdict = {
@@ -34,19 +37,19 @@ def find_heuristic(
     #     if edge['relation_type'] == 'INSIDE'
     # }
 
-    observation_ids = [x['id'] for x in observations['nodes']]
+    observation_ids = [x["id"] for x in observations["nodes"]]
 
     # if agent_id == 1 and hold:
     #     print('container_ids find:', object_target, containerdict)
 
     try:
         room_char = [
-            edge['to_id']
-            for edge in env_graph['edges']
-            if edge['from_id'] == agent_id and edge['relation_type'] == 'INSIDE'
+            edge["to_id"]
+            for edge in env_graph["edges"]
+            if edge["from_id"] == agent_id and edge["relation_type"] == "INSIDE"
         ][0]
     except:
-        print('Error')
+        print("Error")
         # ipdb.set_trace()
 
     action_list = []
@@ -61,17 +64,17 @@ def find_heuristic(
             raise Exception
         # If the object is a room, we have to walk to what is insde
 
-        if id2node[container]['category'] == 'Rooms':
+        if id2node[container]["category"] == "Rooms":
             action_list = [
-                ('walk', (id2node[target]['class_name'], target), None)
+                ("walk", (id2node[target]["class_name"], target), None)
             ] + action_list
             cost_list = [0.5] + cost_list
 
-        elif 'CLOSED' in id2node[container]['states'] or (
-            'OPEN' not in id2node[container]['states']
+        elif "CLOSED" in id2node[container]["states"] or (
+            "OPEN" not in id2node[container]["states"]
         ):
-            if id2node[container]['class_name'] != 'character':
-                action = ('open', (id2node[container]['class_name'], container), None)
+            if id2node[container]["class_name"] != "character":
+                action = ("open", (id2node[container]["class_name"], container), None)
                 action_list = [action] + action_list
                 cost_list = [0.05] + cost_list
 
@@ -80,85 +83,85 @@ def find_heuristic(
         #     print(target)
 
     ids_character = [
-        x['to_id']
-        for x in observations['edges']
-        if x['from_id'] == agent_id and x['relation_type'] == 'CLOSE'
+        x["to_id"]
+        for x in observations["edges"]
+        if x["from_id"] == agent_id and x["relation_type"] == "CLOSE"
     ] + [
-        x['from_id']
-        for x in observations['edges']
-        if x['to_id'] == agent_id and x['relation_type'] == 'CLOSE'
+        x["from_id"]
+        for x in observations["edges"]
+        if x["to_id"] == agent_id and x["relation_type"] == "CLOSE"
     ]
 
     if target not in ids_character:
         # If character is not next to the object, walk there
         action_list = [
-            ('walk', (id2node[target]['class_name'], target), None)
+            ("walk", (id2node[target]["class_name"], target), None)
         ] + action_list
         cost_list = [1] + cost_list
 
     # if hold:
     #     print(action_list)
 
-    return action_list, cost_list, f'find_{target}'
+    return action_list, cost_list, f"find_{target}"
 
 
 def touch_heuristic(
     agent_id, char_index, unsatisfied, env_graph, simulator, object_target
 ):
     observations = simulator.get_observations(env_graph, char_index=char_index)
-    target_id = int(object_target.split('_')[-1])
+    target_id = int(object_target.split("_")[-1])
 
-    observed_ids = [node['id'] for node in observations['nodes']]
+    observed_ids = [node["id"] for node in observations["nodes"]]
     agent_close = [
         edge
-        for edge in env_graph['edges']
+        for edge in env_graph["edges"]
         if (
-            (edge['from_id'] == agent_id and edge['to_id'] == target_id)
-            or (edge['from_id'] == target_id and edge['to_id'] == agent_id)
-            and edge['relation_type'] == 'CLOSE'
+            (edge["from_id"] == agent_id and edge["to_id"] == target_id)
+            or (edge["from_id"] == target_id and edge["to_id"] == agent_id)
+            and edge["relation_type"] == "CLOSE"
         )
     ]
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_id][0]
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_id][0]
 
-    target_action = [('touch', (target_node['class_name'], target_id), None)]
+    target_action = [("touch", (target_node["class_name"], target_id), None)]
     cost = [0.05]
 
     if len(agent_close) > 0 and target_id in observed_ids:
-        return target_action, cost, f'touch_{target_id}'
+        return target_action, cost, f"touch_{target_id}"
     else:
         find_actions, find_costs, _ = find_heuristic(
             agent_id, char_index, unsatisfied, env_graph, simulator, object_target
         )
-        return find_actions + target_action, find_costs + cost, f'touch_{target_id}'
+        return find_actions + target_action, find_costs + cost, f"touch_{target_id}"
 
 
 def grab_heuristic(
     agent_id, char_index, unsatisfied, env_graph, simulator, object_target
 ):
     observations = simulator.get_observations(env_graph, char_index=char_index)
-    target_id = int(object_target.split('_')[-1])
+    target_id = int(object_target.split("_")[-1])
 
-    observed_ids = [node['id'] for node in observations['nodes']]
+    observed_ids = [node["id"] for node in observations["nodes"]]
     agent_close = [
         edge
-        for edge in env_graph['edges']
+        for edge in env_graph["edges"]
         if (
-            (edge['from_id'] == agent_id and edge['to_id'] == target_id)
-            or (edge['from_id'] == target_id and edge['to_id'] == agent_id)
-            and edge['relation_type'] == 'CLOSE'
+            (edge["from_id"] == agent_id and edge["to_id"] == target_id)
+            or (edge["from_id"] == target_id and edge["to_id"] == agent_id)
+            and edge["relation_type"] == "CLOSE"
         )
     ]
     grabbed_obj_ids = [
-        edge['to_id']
-        for edge in env_graph['edges']
-        if (edge['from_id'] == agent_id and 'HOLDS' in edge['relation_type'])
+        edge["to_id"]
+        for edge in env_graph["edges"]
+        if (edge["from_id"] == agent_id and "HOLDS" in edge["relation_type"])
     ]
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_id][0]
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_id][0]
 
     if target_id not in grabbed_obj_ids:
-        target_action = [('grab', (target_node['class_name'], target_id), None)]
+        target_action = [("grab", (target_node["class_name"], target_id), None)]
         cost = [0.05]
     else:
         target_action = []
@@ -170,111 +173,113 @@ def grab_heuristic(
     if len(agent_close) > 0 and target_id in observed_ids:
         if agent_id == 1 and target_id == 351:
             print(target_action)
-        return target_action, cost, f'grab_{target_id}'
+        return target_action, cost, f"grab_{target_id}"
     else:
         find_actions, find_costs, _ = find_heuristic(
             agent_id, char_index, unsatisfied, env_graph, simulator, object_target
         )
         if agent_id == 1 and target_id == 351:
             print(find_actions + target_action)
-        return find_actions + target_action, find_costs + cost, f'grab_{target_id}'
+        return find_actions + target_action, find_costs + cost, f"grab_{target_id}"
 
 
 def turnOn_heuristic(
     agent_id, char_index, unsatisfied, env_graph, simulator, object_target
 ):
     observations = simulator.get_observations(env_graph, char_index=char_index)
-    target_id = int(object_target.split('_')[-1])
+    target_id = int(object_target.split("_")[-1])
 
-    observed_ids = [node['id'] for node in observations['nodes']]
+    observed_ids = [node["id"] for node in observations["nodes"]]
     agent_close = [
         edge
-        for edge in env_graph['edges']
+        for edge in env_graph["edges"]
         if (
-            (edge['from_id'] == agent_id and edge['to_id'] == target_id)
-            or (edge['from_id'] == target_id and edge['to_id'] == agent_id)
-            and edge['relation_type'] == 'CLOSE'
+            (edge["from_id"] == agent_id and edge["to_id"] == target_id)
+            or (edge["from_id"] == target_id and edge["to_id"] == agent_id)
+            and edge["relation_type"] == "CLOSE"
         )
     ]
     grabbed_obj_ids = [
-        edge['to_id']
-        for edge in env_graph['edges']
-        if (edge['from_id'] == agent_id and 'HOLDS' in edge['relation_type'])
+        edge["to_id"]
+        for edge in env_graph["edges"]
+        if (edge["from_id"] == agent_id and "HOLDS" in edge["relation_type"])
     ]
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_id][0]
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_id][0]
 
     if target_id not in grabbed_obj_ids:
-        target_action = [('switchon', (target_node['class_name'], target_id), None)]
+        target_action = [("switchon", (target_node["class_name"], target_id), None)]
         cost = [0.05]
     else:
         target_action = []
         cost = []
 
     if len(agent_close) > 0 and target_id in observed_ids:
-        return target_action, cost, f'turnon_{target_id}'
+        return target_action, cost, f"turnon_{target_id}"
     else:
         find_actions, find_costs = find_heuristic(
             agent_id, char_index, unsatisfied, env_graph, simulator, object_target
         )
-        return find_actions + target_action, find_costs + cost, f'turnon_{target_id}'
+        return find_actions + target_action, find_costs + cost, f"turnon_{target_id}"
 
 
 def sit_heuristic(
     agent_id, char_index, unsatisfied, env_graph, simulator, object_target
 ):
     observations = simulator.get_observations(env_graph, char_index=char_index)
-    target_id = int(object_target.split('_')[-1])
+    target_id = int(object_target.split("_")[-1])
 
-    observed_ids = [node['id'] for node in observations['nodes']]
+    observed_ids = [node["id"] for node in observations["nodes"]]
     agent_close = [
         edge
-        for edge in env_graph['edges']
+        for edge in env_graph["edges"]
         if (
-            (edge['from_id'] == agent_id and edge['to_id'] == target_id)
-            or (edge['from_id'] == target_id and edge['to_id'] == agent_id)
-            and edge['relation_type'] == 'CLOSE'
+            (edge["from_id"] == agent_id and edge["to_id"] == target_id)
+            or (edge["from_id"] == target_id and edge["to_id"] == agent_id)
+            and edge["relation_type"] == "CLOSE"
         )
     ]
     on_ids = [
-        edge['to_id']
-        for edge in env_graph['edges']
-        if (edge['from_id'] == agent_id and 'ON' in edge['relation_type'])
+        edge["to_id"]
+        for edge in env_graph["edges"]
+        if (edge["from_id"] == agent_id and "ON" in edge["relation_type"])
     ]
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_id][0]
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_id][0]
 
     if target_id not in on_ids:
-        target_action = [('sit', (target_node['class_name'], target_id), None)]
+        target_action = [("sit", (target_node["class_name"], target_id), None)]
         cost = [0.05]
     else:
         target_action = []
         cost = []
 
     if len(agent_close) > 0 and target_id in observed_ids:
-        return target_action, cost, f'sit_{target_id}'
+        return target_action, cost, f"sit_{target_id}"
     else:
         find_actions, find_costs = find_heuristic(
             agent_id, char_index, unsatisfied, env_graph, simulator, object_target
         )
-        return find_actions + target_action, find_costs + cost, f'sit_{target_id}'
+        return find_actions + target_action, find_costs + cost, f"sit_{target_id}"
 
 
-def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, target, verbose=False):
+def put_heuristic(
+    agent_id, char_index, unsatisfied, env_graph, simulator, target, verbose=False
+):
     # Modif, now put heristic is only the immaediate after action
     observations = simulator.get_observations(env_graph, char_index=char_index)
 
-    target_grab, target_put = [int(x) for x in target.split('_')[-2:]]
+    target_grab, target_put = [int(x) for x in target.split("_")[-2:]]
     if verbose:
         raise AssertionError
     if (
         sum(
             [
                 1
-                for edge in observations['edges']
-                if edge['from_id'] == target_grab
-                and edge['to_id'] == target_put
-                and edge['relation_type'] == 'ON'
+                for edge in observations["edges"]
+                if edge["from_id"] == target_grab
+                and edge["to_id"] == target_put
+                and edge["relation_type"] == "ON"
             ]
         )
         > 0
@@ -287,11 +292,11 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
         sum(
             [
                 1
-                for edge in observations['edges']
-                if edge['to_id'] == target_grab
-                and edge['from_id'] != agent_id
+                for edge in observations["edges"]
+                if edge["to_id"] == target_grab
+                and edge["from_id"] != agent_id
                 and agent_id == 2
-                and 'HOLD' in edge['relation_type']
+                and "HOLD" in edge["relation_type"]
             ]
         )
         > 0
@@ -300,17 +305,17 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
         # ipdb.set_trace()
         return [], 0, []
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_grab][0]
-    target_node2 = [node for node in env_graph['nodes'] if node['id'] == target_put][0]
-    id2node = {node['id']: node for node in env_graph['nodes']}
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_grab][0]
+    target_node2 = [node for node in env_graph["nodes"] if node["id"] == target_put][0]
+    id2node = {node["id"]: node for node in env_graph["nodes"]}
     target_grabbed = (
         len(
             [
                 edge
-                for edge in env_graph['edges']
-                if edge['from_id'] == agent_id
-                and 'HOLDS' in edge['relation_type']
-                and edge['to_id'] == target_grab
+                for edge in env_graph["edges"]
+                if edge["from_id"] == agent_id
+                and "HOLDS" in edge["relation_type"]
+                and edge["to_id"] == target_grab
             ]
         )
         > 0
@@ -325,12 +330,12 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
             unsatisfied,
             env_graph,
             simulator,
-            'grab_' + str(target_node['id']),
+            "grab_" + str(target_node["id"]),
         )
         if len(grab_obj1) > 0:
-            if grab_obj1[0][0] == 'walk':
+            if grab_obj1[0][0] == "walk":
                 id_room = grab_obj1[0][1][1]
-                if id2node[id_room]['category'] == 'Rooms':
+                if id2node[id_room]["category"] == "Rooms":
                     object_diff_room = id_room
 
         return grab_obj1, cost_grab_obj1, heuristic_name
@@ -344,7 +349,7 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
             unsatisfied,
             env_graph_new,
             simulator,
-            'find_' + str(target_node2['id']),
+            "find_" + str(target_node2["id"]),
         )
 
     res = grab_obj1 + find_obj2
@@ -355,37 +360,37 @@ def put_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, targe
     if target_put > 2:  # not character
         action = [
             (
-                'putback',
-                (target_node['class_name'], target_grab),
-                (target_node2['class_name'], target_put),
+                "putback",
+                (target_node["class_name"], target_grab),
+                (target_node2["class_name"], target_put),
             )
         ]
         cost = [0.05]
         res += action
         cost_list += cost
     else:
-        action = [('walk', (target_node2['class_name'], target_put), None)]
+        action = [("walk", (target_node2["class_name"], target_put), None)]
         cost = [0]
         res += action
         cost_list += cost
     # print(res, target)
-    return res, cost_list, f'put_{target_grab}_{target_put}'
+    return res, cost_list, f"put_{target_grab}_{target_put}"
 
 
 def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, target):
     # TODO: change this as well
     observations = simulator.get_observations(env_graph, char_index=char_index)
 
-    target_grab, target_put = [int(x) for x in target.split('_')[-2:]]
+    target_grab, target_put = [int(x) for x in target.split("_")[-2:]]
 
     if (
         sum(
             [
                 1
-                for edge in observations['edges']
-                if edge['from_id'] == target_grab
-                and edge['to_id'] == target_put
-                and edge['relation_type'] == 'ON'
+                for edge in observations["edges"]
+                if edge["from_id"] == target_grab
+                and edge["to_id"] == target_put
+                and edge["relation_type"] == "ON"
             ]
         )
         > 0
@@ -397,11 +402,11 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
         sum(
             [
                 1
-                for edge in observations['edges']
-                if edge['to_id'] == target_grab
-                and edge['from_id'] != agent_id
+                for edge in observations["edges"]
+                if edge["to_id"] == target_grab
+                and edge["from_id"] != agent_id
                 and agent_id == 2
-                and 'HOLD' in edge['relation_type']
+                and "HOLD" in edge["relation_type"]
             ]
         )
         > 0
@@ -409,17 +414,17 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
         # Object has been placed
         return None, 0, None
 
-    target_node = [node for node in env_graph['nodes'] if node['id'] == target_grab][0]
-    target_node2 = [node for node in env_graph['nodes'] if node['id'] == target_put][0]
-    id2node = {node['id']: node for node in env_graph['nodes']}
+    target_node = [node for node in env_graph["nodes"] if node["id"] == target_grab][0]
+    target_node2 = [node for node in env_graph["nodes"] if node["id"] == target_put][0]
+    id2node = {node["id"]: node for node in env_graph["nodes"]}
     target_grabbed = (
         len(
             [
                 edge
-                for edge in env_graph['edges']
-                if edge['from_id'] == agent_id
-                and 'HOLDS' in edge['relation_type']
-                and edge['to_id'] == target_grab
+                for edge in env_graph["edges"]
+                if edge["from_id"] == agent_id
+                and "HOLDS" in edge["relation_type"]
+                and edge["to_id"] == target_grab
             ]
         )
         > 0
@@ -433,12 +438,12 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
             unsatisfied,
             env_graph,
             simulator,
-            'grab_' + str(target_node['id']),
+            "grab_" + str(target_node["id"]),
         )
         if len(grab_obj1) > 0:
-            if grab_obj1[0][0] == 'walk':
+            if grab_obj1[0][0] == "walk":
                 id_room = grab_obj1[0][1][1]
-                if id2node[id_room]['category'] == 'Rooms':
+                if id2node[id_room]["category"] == "Rooms":
                     object_diff_room = id_room
 
         return grab_obj1, cost_grab_obj1, heuristic_name
@@ -456,15 +461,15 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
             unsatisfied,
             env_graph_new,
             simulator,
-            'find_' + str(target_node2['id']),
+            "find_" + str(target_node2["id"]),
         )
-        target_put_state = target_node2['states']
-        action_open = [('open', (target_node2['class_name'], target_put))]
+        target_put_state = target_node2["states"]
+        action_open = [("open", (target_node2["class_name"], target_put))]
         action_put = [
             (
-                'putin',
-                (target_node['class_name'], target_grab),
-                (target_node2['class_name'], target_put),
+                "putin",
+                (target_node["class_name"], target_grab),
+                (target_node2["class_name"], target_put),
             )
         ]
         cost_open = [0.05]
@@ -472,7 +477,7 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
 
         remained_to_put = 0
         for predicate, count in unsatisfied.items():
-            if predicate.startswith('inside'):
+            if predicate.startswith("inside"):
                 remained_to_put += count
         if remained_to_put == 1:  # or agent_id > 1:
             action_close = []
@@ -483,7 +488,7 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
             # action_close = [('close', (target_node2['class_name'], target_put))]
             # cost_close = [0.05]
 
-        if 'CLOSED' in target_put_state or 'OPEN' not in target_put_state:
+        if "CLOSED" in target_put_state or "OPEN" not in target_put_state:
             res = grab_obj1 + find_obj2 + action_open + action_put + action_close
             cost_list = (
                 cost_grab_obj1 + cost_find_obj2 + cost_open + cost_put + cost_close
@@ -493,9 +498,9 @@ def putIn_heuristic(agent_id, char_index, unsatisfied, env_graph, simulator, tar
             cost_list = cost_grab_obj1 + cost_find_obj2 + cost_put + cost_close
 
         # print(res, target)
-        grab_node = target_node['id']
-        place_node = target_node2['id']
-        return res, cost_list, f'putin_{grab_node}_{place_node}'
+        grab_node = target_node["id"]
+        place_node = target_node2["id"]
+        return res, cost_list, f"putin_{grab_node}_{place_node}"
 
 
 def clean_graph(state, goal_spec, last_opened):
@@ -505,39 +510,39 @@ def clean_graph(state, goal_spec, last_opened):
     ids_interaction = []
     nodes_missing = []
     for predicate, val_goal in goal_spec.items():
-        elements = predicate.split('_')
-        nodes_missing += val_goal['grab_obj_ids']
-        nodes_missing += val_goal['container_ids']
+        elements = predicate.split("_")
+        nodes_missing += val_goal["grab_obj_ids"]
+        nodes_missing += val_goal["container_ids"]
     # get all grabbed object ids
-    for edge in state['edges']:
-        if 'HOLD' in edge['relation_type'] and edge['to_id'] not in nodes_missing:
-            nodes_missing += [edge['to_id']]
+    for edge in state["edges"]:
+        if "HOLD" in edge["relation_type"] and edge["to_id"] not in nodes_missing:
+            nodes_missing += [edge["to_id"]]
 
     nodes_missing += [
-        node['id']
-        for node in state['nodes']
-        if node['class_name'] == 'character' or node['category'] in ['Rooms', 'Doors']
+        node["id"]
+        for node in state["nodes"]
+        if node["class_name"] == "character" or node["category"] in ["Rooms", "Doors"]
     ]
 
     def clean_node(curr_node):
         return {
-            'id': curr_node['id'],
-            'class_name': curr_node['class_name'],
-            'category': curr_node['category'],
-            'states': curr_node['states'],
-            'properties': curr_node['properties'],
+            "id": curr_node["id"],
+            "class_name": curr_node["class_name"],
+            "category": curr_node["category"],
+            "states": curr_node["states"],
+            "properties": curr_node["properties"],
         }
 
-    id2node = {node['id']: clean_node(node) for node in state['nodes']}
+    id2node = {node["id"]: clean_node(node) for node in state["nodes"]}
     # print([node for node in state['nodes'] if node['class_name'] == 'kitchentable'])
     # print(id2node[235])
     # ipdb.set_trace()
     inside = {}
-    for edge in state['edges']:
-        if edge['relation_type'] == 'INSIDE':
-            if edge['from_id'] not in inside.keys():
-                inside[edge['from_id']] = []
-            inside[edge['from_id']].append(edge['to_id'])
+    for edge in state["edges"]:
+        if edge["relation_type"] == "INSIDE":
+            if edge["from_id"] not in inside.keys():
+                inside[edge["from_id"]] = []
+            inside[edge["from_id"]].append(edge["to_id"])
 
     while len(nodes_missing) > 0:
         new_nodes_missing = []
@@ -559,28 +564,28 @@ def clean_graph(state, goal_spec, last_opened):
     # for clean up tasks, add places to put objects to
     augmented_class_names = []
     for key, value in goal_spec.items():
-        elements = key.split('_')
-        if elements[0] == 'off':
-            if id2node[value['containers'][0]]['class_name'] in [
-                'dishwasher',
-                'kitchentable',
+        elements = key.split("_")
+        if elements[0] == "off":
+            if id2node[value["containers"][0]]["class_name"] in [
+                "dishwasher",
+                "kitchentable",
             ]:
                 augmented_class_names += [
-                    'kitchencabinets',
-                    'kitchencounterdrawer',
-                    'kitchencounter',
+                    "kitchencabinets",
+                    "kitchencounterdrawer",
+                    "kitchencounter",
                 ]
                 break
     for key in goal_spec:
-        elements = key.split('_')
-        if elements[0] == 'off':
-            if id2node[value['container_ids'][0]]['class_name'] in ['sofa', 'chair']:
-                augmented_class_names += ['coffeetable']
+        elements = key.split("_")
+        if elements[0] == "off":
+            if id2node[value["container_ids"][0]]["class_name"] in ["sofa", "chair"]:
+                augmented_class_names += ["coffeetable"]
                 break
     containers = [
-        [node['id'], node['class_name']]
-        for node in state['nodes']
-        if node['class_name'] in augmented_class_names
+        [node["id"], node["class_name"]]
+        for node in state["nodes"]
+        if node["class_name"] in augmented_class_names
     ]
     for obj_id in containers:
         if obj_id not in ids_interaction:
@@ -589,8 +594,8 @@ def clean_graph(state, goal_spec, last_opened):
     new_graph = {
         "edges": [
             edge
-            for edge in state['edges']
-            if edge['from_id'] in ids_interaction and edge['to_id'] in ids_interaction
+            for edge in state["edges"]
+            if edge["from_id"] in ids_interaction and edge["to_id"] in ids_interaction
         ],
         "nodes": [id2node[id_node] for id_node in ids_interaction],
     }
@@ -600,14 +605,14 @@ def clean_graph(state, goal_spec, last_opened):
 
 def mp_run_mcts(root_node, mcts, nb_steps, last_subgoal, opponent_subgoal):
     heuristic_dict = {
-        'offer': put_heuristic,
-        'find': find_heuristic,
-        'grab': grab_heuristic,
-        'put': put_heuristic,
-        'putIn': putIn_heuristic,
-        'sit': sit_heuristic,
-        'turnOn': turnOn_heuristic,
-        'touch': touch_heuristic,
+        "offer": put_heuristic,
+        "find": find_heuristic,
+        "grab": grab_heuristic,
+        "put": put_heuristic,
+        "putIn": putIn_heuristic,
+        "sit": sit_heuristic,
+        "turnOn": turnOn_heuristic,
+        "touch": touch_heuristic,
     }
     # res = root_node * 2
     try:
@@ -655,7 +660,7 @@ def get_plan(
     for particle_id in range(len(particles)):
         root_action = None
         root_node = Node(
-            id=(root_action, [goal_spec, 0, '']),
+            id=(root_action, [goal_spec, 0, ""]),
             particle_id=particle_id,
             plan=[],
             state=copy.deepcopy(particles[particle_id]),
@@ -671,14 +676,13 @@ def get_plan(
         mcts=mcts,
         nb_steps=nb_steps,
         last_subgoal=last_subgoal,
-        opponent_subgoal=opponent_subgoal
+        opponent_subgoal=opponent_subgoal,
     )
 
     if len(root_nodes) == 0:
         print("No root nodes")
         raise Exception
     if num_process > 0:
-
         manager = mp.Manager()
         res = manager.dict()
         num_root_nodes = len(root_nodes)
@@ -748,7 +752,7 @@ def get_plan(
                 goal = goals_all[ind][index_action]
             except:
                 raise AssertionError
-            if not action in action_count_dict:
+            if action not in action_count_dict:
                 action_count_dict[action] = []
                 action_goal_dict[action] = []
                 action_reward_dict[action] = 0
@@ -797,14 +801,13 @@ def get_plan(
     # if 'put' in plan[0]:
     #     ipdb.set_trace()
     if verbose:
-        print('plan', plan)
-        print('subgoal', subgoals)
+        print("plan", plan)
+        print("subgoal", subgoals)
     sample_id = None
 
     if sample_id is not None:
         res[sample_id] = plan
     else:
-
         return plan, next_root, subgoals
 
 
@@ -834,7 +837,7 @@ class MCTS_agent_particle_v2_instance:
         get_plan_cost=False,
         seed=None,
     ):
-        self.agent_type = 'MCTS'
+        self.agent_type = "MCTS"
         self.verbose = False
         self.recursive = recursive
 
@@ -857,7 +860,7 @@ class MCTS_agent_particle_v2_instance:
         self.sim_env.pomdp = True
         self.belief = None
 
-        self.belief_params = agent_params['belief']
+        self.belief_params = agent_params["belief"]
         self.agent_params = agent_params
         self.max_episode_length = max_episode_length
         self.num_simulation = num_simulation
@@ -895,17 +898,17 @@ class MCTS_agent_particle_v2_instance:
     def filtering_graph(self, graph):
         new_edges = []
         edge_dict = {}
-        for edge in graph['edges']:
-            key = (edge['from_id'], edge['to_id'])
+        for edge in graph["edges"]:
+            key = (edge["from_id"], edge["to_id"])
             if key not in edge_dict:
-                edge_dict[key] = [edge['relation_type']]
+                edge_dict[key] = [edge["relation_type"]]
                 new_edges.append(edge)
             else:
-                if edge['relation_type'] not in edge_dict[key]:
-                    edge_dict[key] += [edge['relation_type']]
+                if edge["relation_type"] not in edge_dict[key]:
+                    edge_dict[key] += [edge["relation_type"]]
                     new_edges.append(edge)
 
-        graph['edges'] = new_edges
+        graph["edges"] = new_edges
         return graph
 
     def sample_belief(self, obs_graph):
@@ -916,18 +919,18 @@ class MCTS_agent_particle_v2_instance:
     def get_relations_char(self, graph):
         # TODO: move this in vh_mdp
         char_id = [
-            node['id'] for node in graph['nodes'] if node['class_name'] == 'character'
+            node["id"] for node in graph["nodes"] if node["class_name"] == "character"
         ][0]
-        edges = [edge for edge in graph['edges'] if edge['from_id'] == char_id]
-        print('Character:')
+        edges = [edge for edge in graph["edges"] if edge["from_id"] == char_id]
+        print("Character:")
         print(edges)
-        print('---')
+        print("---")
 
     def new_obs(obs, ignore_ids=None):
-        curr_visible_ids = [node['id'] for node in obs['nodes']]
-        relations = {'ON': 0, 'INSIDE': 1}
+        curr_visible_ids = [node["id"] for node in obs["nodes"]]
+        relations = {"ON": 0, "INSIDE": 1}
         num_relations = len(relations)
-        if set(curr_visible_ids) != set(self.last_obs['ids']):
+        if set(curr_visible_ids) != set(self.last_obs["ids"]):
             new_obs = True
         else:
             state_ids = np.zeros((len(curr_visible_ids), 4))
@@ -936,47 +939,53 @@ class MCTS_agent_particle_v2_instance:
             )
             idnode2id = []
             for idnode, node in enumerate(nodes):
-                idnode2id[node['id']] = idnode
-                state_ids[idnode, 0] = 'OPEN' in node['states']
-                state_ids[idnode, 1] = 'CLOSED' in node['states']
-                state_ids[idnode, 0] = 'ON' in node['states']
-                state_ids[idnode, 1] = 'OFF' in node['states']
-            for edge in node['edges']:
-                if edge['relation_type'] in relations.keys():
-                    edge_id = relations[edge['relation_type']]
+                idnode2id[node["id"]] = idnode
+                state_ids[idnode, 0] = "OPEN" in node["states"]
+                state_ids[idnode, 1] = "CLOSED" in node["states"]
+                state_ids[idnode, 0] = "ON" in node["states"]
+                state_ids[idnode, 1] = "OFF" in node["states"]
+            for edge in node["edges"]:
+                if edge["relation_type"] in relations.keys():
+                    edge_id = relations[edge["relation_type"]]
                     from_id, to_id = (
-                        idnode2id[edge['from_id']],
-                        idnode2id[edge['to_id']],
+                        idnode2id[edge["from_id"]],
+                        idnode2id[edge["to_id"]],
                     )
                     edge_ids[from_id, to_id, edge_id] = 1
 
             if ignore_ids != None:
                 # We will ignore some edges, for instance if we are grabbing an object
-                self.last_obs['edges'][ignore_ids, :] = edge_ids[ignore_ids, :]
-                self.last_obs['edges'][:, ignore_ids] = edge_ids[:, ignore_ids]
+                self.last_obs["edges"][ignore_ids, :] = edge_ids[ignore_ids, :]
+                self.last_obs["edges"][:, ignore_ids] = edge_ids[:, ignore_ids]
 
             if (
-                state_ids != self.last_obs['state']
-                or edge_ids != self.last_obs['edges']
+                state_ids != self.last_obs["state"]
+                or edge_ids != self.last_obs["edges"]
             ):
                 new_obs = True
-                self.last_obs['state'] = state_ids
-                self.last_obs['edges'] = edge_ids
+                self.last_obs["state"] = state_ids
+                self.last_obs["edges"] = edge_ids
         return new_obs
-    
+
     def get_location_in_goal(self, obs, obj_id):
-        curr_loc = [edge for edge in obs['edges'] if edge['from_id'] == obj_id]
-        curr_loc += [edge for edge in obs['edges'] if edge['to_id'] == obj_id]
-        curr_loc_on = [edge for edge in curr_loc if edge['relation_type'] == 'ON' or 'hold' in edge['relation_type'].lower()]
-        curr_loc_inside = [edge for edge in curr_loc if edge['relation_type'] == 'INSIDE']
-        if len(curr_loc_on)+len(curr_loc_inside) > 0:
+        curr_loc = [edge for edge in obs["edges"] if edge["from_id"] == obj_id]
+        curr_loc += [edge for edge in obs["edges"] if edge["to_id"] == obj_id]
+        curr_loc_on = [
+            edge
+            for edge in curr_loc
+            if edge["relation_type"] == "ON" or "hold" in edge["relation_type"].lower()
+        ]
+        curr_loc_inside = [
+            edge for edge in curr_loc if edge["relation_type"] == "INSIDE"
+        ]
+        if len(curr_loc_on) + len(curr_loc_inside) > 0:
             if len(curr_loc_on) > 0:
-                if 'hold' in curr_loc_on[0]['relation_type'].lower():
-                    curr_loc_index = curr_loc_on[0]['from_id']
+                if "hold" in curr_loc_on[0]["relation_type"].lower():
+                    curr_loc_index = curr_loc_on[0]["from_id"]
                 else:
-                    curr_loc_index = curr_loc_on[0]['to_id']
+                    curr_loc_index = curr_loc_on[0]["to_id"]
             else:
-                curr_loc_index = curr_loc_inside[0]['to_id']
+                curr_loc_index = curr_loc_inside[0]["to_id"]
             if len(curr_loc_on) > 1 or len(curr_loc_inside) > 1:
                 print(curr_loc_on)
                 print(curr_loc_inside)
@@ -1016,17 +1025,17 @@ class MCTS_agent_particle_v2_instance:
 
         goal_ids_all = []
         for goal_name, goal_val in goal_spec.items():
-            if goal_val['count'] > 0:
-                goal_ids_all += goal_val['grab_obj_ids']
+            if goal_val["count"] > 0:
+                goal_ids_all += goal_val["grab_obj_ids"]
 
         goal_ids = [
-            nodeobs['id'] for nodeobs in obs['nodes'] if nodeobs['id'] in goal_ids_all
+            nodeobs["id"] for nodeobs in obs["nodes"] if nodeobs["id"] in goal_ids_all
         ]
         close_ids = [
-            edge['to_id']
-            for edge in obs['edges']
-            if edge['from_id'] == self.agent_id
-            and edge['relation_type'] in ['CLOSE', 'INSIDE']
+            edge["to_id"]
+            for edge in obs["edges"]
+            if edge["from_id"] == self.agent_id
+            and edge["relation_type"] in ["CLOSE", "INSIDE"]
         ]
         plan = []
 
@@ -1037,12 +1046,12 @@ class MCTS_agent_particle_v2_instance:
             next_id_interaction = []
             if len(last_plan) > 1:
                 next_id_interaction.append(
-                    int(last_plan[1].split('(')[1].split(')')[0])
+                    int(last_plan[1].split("(")[1].split(")")[0])
                 )
 
             new_observed_objects = (
                 set(goal_ids)
-                - set(self.last_obs['goal_objs'])
+                - set(self.last_obs["goal_objs"])
                 - set(next_id_interaction)
             )
             # self.last_obs = {'goal_objs': goal_ids}
@@ -1050,37 +1059,35 @@ class MCTS_agent_particle_v2_instance:
                 # New goal, need to replan
                 should_replan = True
             else:
-
-                visible_ids = {node['id']: node for node in obs['nodes']}
+                visible_ids = {node["id"]: node for node in obs["nodes"]}
                 curr_plan = last_plan
 
                 first_action_non_walk = [
-                    act for act in last_plan[1:] if 'walk' not in act
+                    act for act in last_plan[1:] if "walk" not in act
                 ]
 
                 # If the first action other than walk is OPEN/CLOSE and the object is already open/closed...
                 if len(first_action_non_walk):
                     first_action_non_walk = first_action_non_walk[0]
-                    if 'open' in first_action_non_walk:
-                        obj_id = int(curr_plan[0].split('(')[1].split(')')[0])
+                    if "open" in first_action_non_walk:
+                        obj_id = int(curr_plan[0].split("(")[1].split(")")[0])
                         if obj_id in visible_ids:
-                            if 'OPEN' in visible_ids[obj_id]['states']:
+                            if "OPEN" in visible_ids[obj_id]["states"]:
                                 should_replan = True
                                 print("IS OPEN")
-                    elif 'close' in first_action_non_walk:
-                        obj_id = int(curr_plan[0].split('(')[1].split(')')[0])
+                    elif "close" in first_action_non_walk:
+                        obj_id = int(curr_plan[0].split("(")[1].split(")")[0])
                         if obj_id in visible_ids:
-
-                            if 'CLOSED' in visible_ids[obj_id]['states']:
+                            if "CLOSED" in visible_ids[obj_id]["states"]:
                                 should_replan = True
                                 print("IS CLOSED")
 
                 if (
-                    'open' in last_plan[0]
-                    or 'close' in last_plan[0]
-                    or 'put' in last_plan[0]
-                    or 'grab' in last_plan[0]
-                    or 'touch' in last_plan[0]
+                    "open" in last_plan[0]
+                    or "close" in last_plan[0]
+                    or "put" in last_plan[0]
+                    or "grab" in last_plan[0]
+                    or "touch" in last_plan[0]
                 ):
                     if len(last_plan) == 1:
                         should_replan = True
@@ -1092,20 +1099,19 @@ class MCTS_agent_particle_v2_instance:
                             else None
                         )
                 if (
-                    'open' in curr_plan[0]
-                    or 'close' in curr_plan[0]
-                    or 'put' in curr_plan[0]
-                    or 'grab' in curr_plan[0]
-                    or 'touch' in curr_plan[0]
+                    "open" in curr_plan[0]
+                    or "close" in curr_plan[0]
+                    or "put" in curr_plan[0]
+                    or "grab" in curr_plan[0]
+                    or "touch" in curr_plan[0]
                 ):
-                    obj_id = int(curr_plan[0].split('(')[1].split(')')[0])
-                    if not obj_id in close_ids or not obj_id in visible_ids:
+                    obj_id = int(curr_plan[0].split("(")[1].split(")")[0])
+                    if obj_id not in close_ids or obj_id not in visible_ids:
                         should_replan = True
 
                 next_action = not should_replan
-                while next_action and 'walk' in curr_plan[0]:
-
-                    obj_id = int(curr_plan[0].split('(')[1].split(')')[0])
+                while next_action and "walk" in curr_plan[0]:
+                    obj_id = int(curr_plan[0].split("(")[1].split(")")[0])
 
                     # If object is not visible, replan
                     if obj_id not in visible_ids:
@@ -1128,46 +1134,54 @@ class MCTS_agent_particle_v2_instance:
                 if not should_replan:
                     plan = curr_plan
 
-
         obj_grab = -1
         curr_loc_index = -1
 
-        self.last_obs = {'goal_objs': goal_ids}
+        self.last_obs = {"goal_objs": goal_ids}
         if self.failed_action:
             should_replan = True
             self.failed_action = False
         else:
-            #obs = utils_env.inside_not_trans(obs)
+            # obs = utils_env.inside_not_trans(obs)
             if not should_replan and not must_replan:
                 # If the location of the object you wanted to grab has changed
-                if last_subgoal is not None and 'grab' in last_subgoal[0]:
-                    obj_grab = int(last_subgoal[0].split('_')[1])
+                if last_subgoal is not None and "grab" in last_subgoal[0]:
+                    obj_grab = int(last_subgoal[0].split("_")[1])
                     curr_loc_index = self.get_location_in_goal(obs, obj_grab)
                     if obj_grab not in self.last_loc:
                         raise AssertionError
                     if curr_loc_index != self.last_loc[obj_grab]:
                         # The object I wanted to get now changed position, so I should replan
-                        #self.last_loc = curr_loc_index
+                        # self.last_loc = curr_loc_index
                         should_replan = True
 
                 # If you wanted to put an object but it is not in your hands anymore
-                if last_subgoal is not None and 'put' in last_subgoal[0]:
-                    object_put = int(last_subgoal[0].split('_')[1])
-                    hands_char = [edge['to_id'] for edge in obs['edges'] if 'hold' in edge['relation_type'].lower() and edge['from_id'] == self.agent_id]
+                if last_subgoal is not None and "put" in last_subgoal[0]:
+                    object_put = int(last_subgoal[0].split("_")[1])
+                    hands_char = [
+                        edge["to_id"]
+                        for edge in obs["edges"]
+                        if "hold" in edge["relation_type"].lower()
+                        and edge["from_id"] == self.agent_id
+                    ]
                     if object_put not in hands_char:
-                        should_replan = True               
+                        should_replan = True
 
         time1 = time.time()
-        lg = ''
+        lg = ""
         if last_subgoal is not None and len(last_subgoal) > 0:
             lg = last_subgoal[0]
         if self.verbose:
-            print('-------- Agent {}: {} --------'.format(self.agent_id, 'replan' if should_replan else 'no replan'))
+            print(
+                "-------- Agent {}: {} --------".format(
+                    self.agent_id, "replan" if should_replan else "no replan"
+                )
+            )
         if should_replan or must_replan:
             # ipdb.set_trace()
             for particle_id, particle in enumerate(self.particles):
                 belief_states = []
-                obs_ids = [node['id'] for node in obs['nodes']]
+                obs_ids = [node["id"] for node in obs["nodes"]]
 
                 # if True: #particle is None:
                 new_graph = self.belief.update_graph_from_gt_graph(
@@ -1192,9 +1206,9 @@ class MCTS_agent_particle_v2_instance:
                 satisfied, unsatisfied = utils_env.check_progress2(
                     init_state, goal_spec
                 )
-                if 'offer' in list(goal_spec.keys())[0]:
+                if "offer" in list(goal_spec.keys())[0]:
                     if self.verbose:
-                        print('offer:')
+                        print("offer:")
                         print(satisfied)
                         print(unsatisfied)
                     # ipdb.set_trace()
@@ -1221,10 +1235,18 @@ class MCTS_agent_particle_v2_instance:
             if self.agent_id == 2:
                 # If agent 1 is grabbing an object, make sure that is not part of the plan
                 new_goal_spec = copy.deepcopy(goal_spec)
-                ids_grab_1 = [edge['to_id'] for edge in obs['edges'] if edge['from_id'] == 1 and 'hold' in edge['relation_type'].lower()]
+                ids_grab_1 = [
+                    edge["to_id"]
+                    for edge in obs["edges"]
+                    if edge["from_id"] == 1 and "hold" in edge["relation_type"].lower()
+                ]
                 if len(ids_grab_1) > 0:
                     for kgoal, elemgoal in new_goal_spec.items():
-                        elemgoal['grab_obj_ids'] = [ind for ind in elemgoal['grab_obj_ids'] if ind not in ids_grab_1]
+                        elemgoal["grab_obj_ids"] = [
+                            ind
+                            for ind in elemgoal["grab_obj_ids"]
+                            if ind not in ids_grab_1
+                        ]
                     should_stop = True
                 goal_spec = new_goal_spec
 
@@ -1251,8 +1273,8 @@ class MCTS_agent_particle_v2_instance:
             elems_grab = []
             if subgoals is not None:
                 for goal in subgoals:
-                    if goal is not None and goal[0] is not None and 'grab' in goal[0]:
-                        elem_grab = int(goal[0].split('_')[1])
+                    if goal is not None and goal[0] is not None and "grab" in goal[0]:
+                        elem_grab = int(goal[0].split("_")[1])
                         elems_grab.append(elem_grab)
             self.last_loc = {}
             for goal_id in elems_grab:
@@ -1262,7 +1284,7 @@ class MCTS_agent_particle_v2_instance:
             #     ipdb.set_trace()
 
             if self.verbose:
-                print(colored(plan[: min(len(plan), 10)], 'cyan'))
+                print(colored(plan[: min(len(plan), 10)], "cyan"))
             # ipdb.set_trace()
         # else:
         #     subgoals = [[None, None, None], [None, None, None]]
@@ -1270,18 +1292,18 @@ class MCTS_agent_particle_v2_instance:
         #     ipdb.set_trace()
         #     print("Plan empty")
         #     raise Exception
-        #print('-------- Plan {}: {}, {} ------------'.format(self.agent_id, lg, plan))
+        # print('-------- Plan {}: {}, {} ------------'.format(self.agent_id, lg, plan))
         if len(plan) > 0:
             action = plan[0]
-            action = action.replace('[walk]', '[walktowards]')
+            action = action.replace("[walk]", "[walktowards]")
         else:
             action = None
         if self.logging:
             info = {
-                'plan': plan,
-                'subgoals': subgoals,
-                'belief': copy.deepcopy(self.belief.edge_belief),
-                'belief_room': copy.deepcopy(self.belief.room_node),
+                "plan": plan,
+                "subgoals": subgoals,
+                "belief": copy.deepcopy(self.belief.edge_belief),
+                "belief_room": copy.deepcopy(self.belief.room_node),
             }
 
             if self.get_plan_states or self.get_plan_cost:
@@ -1293,7 +1315,6 @@ class MCTS_agent_particle_v2_instance:
                 vh_state = self.particles[particle_id][0]
                 plan_states.append(vh_state.to_dict())
                 for action_item in plan:
-
                     if self.get_plan_cost:
                         plan_cost.append(
                             env.compute_distance(vh_state, action_item, self.agent_id)
@@ -1310,14 +1331,14 @@ class MCTS_agent_particle_v2_instance:
                     plan_states.append(vh_state_dict)
 
                 if self.get_plan_states:
-                    info['plan_states'] = plan_states
+                    info["plan_states"] = plan_states
                 if self.get_plan_cost:
-                    info['plan_cost'] = plan_cost
+                    info["plan_cost"] = plan_cost
 
             if self.logging_graphs:
-                info.update({'obs': obs['nodes'].copy()})
+                info.update({"obs": obs["nodes"].copy()})
         else:
-            info = {'plan': plan, 'subgoals': subgoals}
+            info = {"plan": plan, "subgoals": subgoals}
 
         self.last_action = action
         self.last_subgoal = (
@@ -1332,18 +1353,35 @@ class MCTS_agent_particle_v2_instance:
             print("Replanning... ", should_replan or must_replan)
         if should_replan:
             if self.verbose:
-                print('Agent {} did replan: '.format(self.agent_id), self.last_loc, obj_grab, curr_loc_index, plan)
+                print(
+                    "Agent {} did replan: ".format(self.agent_id),
+                    self.last_loc,
+                    obj_grab,
+                    curr_loc_index,
+                    plan,
+                )
             # if len(plan) == 0 and self.agent_id == 1:
             #     ipdb.set_trace()
 
         else:
             if self.verbose:
-                print('Agent {} not replan: '.format(self.agent_id), self.last_loc, obj_grab, curr_loc_index, plan)
+                print(
+                    "Agent {} not replan: ".format(self.agent_id),
+                    self.last_loc,
+                    obj_grab,
+                    curr_loc_index,
+                    plan,
+                )
 
-        if action is not None and 'grab' in action:
+        if action is not None and "grab" in action:
             if self.agent_id == 2:
                 grab_id = int(action.split()[2][1:-1])
-                grabbed_obj = [edge for edge in obs['edges'] if edge['to_id'] == grab_id and 'hold' in edge['relation_type'].lower()]
+                grabbed_obj = [
+                    edge
+                    for edge in obs["edges"]
+                    if edge["to_id"] == grab_id
+                    and "hold" in edge["relation_type"].lower()
+                ]
                 if len(grabbed_obj):
                     raise AssertionError
             # if len([edge for edge in obs['edges'] if edge['from_id'] == 369 and edge['to_id'] == 103]) > 0:
@@ -1358,10 +1396,9 @@ class MCTS_agent_particle_v2_instance:
         gt_graph,
         task_goal,
         seed=0,
-        simulator_type='python',
+        simulator_type="python",
         is_alice=False,
     ):
-
         self.last_action = None
         self.last_subgoal = None
         self.failed_action = False
