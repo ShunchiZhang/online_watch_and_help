@@ -4,7 +4,6 @@ import random
 import time
 import traceback
 
-import cv2
 import numpy as np
 from tqdm import tqdm
 
@@ -607,7 +606,7 @@ class ArenaMP(object):
                 self.agents[0].failed_action = True
         return step_info
 
-    def run(self, random_goal=False, pred_goal=None, save_img=None):
+    def run(self, random_goal=False, pred_goal=None, saver=None):
         """
         self.task_goal: goal inference
         self.env.task_goal: ground-truth goal
@@ -647,10 +646,19 @@ class ArenaMP(object):
         step = 0
         prev_agent_position = np.array([0, 0, 0]).astype(np.float32)
         while True:
-            if save_img is not None:
-                img_info = {"image_width": 224, "image_height": 224}
-                obs = self.env.get_observation(0, "image", info=img_info)
-                cv2.imwrite("{}/img_{:04d}.png".format(save_img, step), obs)
+            # * save images
+            for agent_id in range(self.num_agents):
+                for view in saver.camera_views:
+                    obs = self.env.get_observation(
+                        agent_id=agent_id,
+                        obs_type="image",
+                        info=dict(
+                            view=view,
+                            image_width=saver.img_w,
+                            image_height=saver.img_h,
+                        ),
+                    )
+                    saver.save_camera_img(obs, agent_id, view, step)
             step += 1
             (obs, reward, done, infos), actions, agent_info = self.step()
             # ipdb.set_trace()

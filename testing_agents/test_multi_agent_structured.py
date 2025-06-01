@@ -2,6 +2,7 @@ import pickle
 from pathlib import Path
 
 from rich.pretty import pretty_repr
+from tqdm import tqdm
 
 from agents.MCTS_agent_particle_v2_instance import MCTS_agent_particle_v2_instance
 from algos.arena_mp2 import ArenaMP
@@ -16,10 +17,13 @@ if __name__ == "__main__":
     args.dataset_path = Path(args.dataset_path)
     env_task_set = pickle.load(args.dataset_path.open("rb"))
     env_task_set = utils_graph.fix_graph(env_task_set)
+    env_task_set = utils_graph.fix_multiple_location(
+        env_task_set, verbose=False, drop_env=True
+    )
 
     args_agent_common = dict(
         recursive=False,
-        max_episode_length=20,
+        max_episode_length=20,  # MCTS_particles_v2_instance:expand()
         num_simulation=20,
         max_rollout_steps=5,
         c_init=0.1,
@@ -61,7 +65,7 @@ if __name__ == "__main__":
     def env_fn(arena_id):
         return UnityEnvironment(
             num_agents=len(agents),
-            max_episode_length=args.max_episode_length,
+            max_episode_length=args.max_steps,
             port_id=arena_id,
             convert_goal=True,
             env_task_set=env_task_set,
@@ -70,13 +74,13 @@ if __name__ == "__main__":
             executable_args=dict(
                 file_name=args.executable_file,
                 x_display="0",
-                no_graphics=True,
+                no_graphics=False,
             ),
             base_port=args.base_port,
         )
 
     arena = ArenaMP(
-        max_number_steps=args.max_episode_length,
+        max_number_steps=args.max_steps,
         arena_id=0,
         environment_fn=env_fn,
         agent_fn=agents,
@@ -86,7 +90,15 @@ if __name__ == "__main__":
 
     args.record_dir = Path(args.record_dir) / args.dataset_path.stem
     args.record_dir.mkdir(parents=True, exist_ok=True)
-    saver = utils_logging.Saver(args.logger_name, args.record_dir)
+    saver = utils_logging.Saver(
+        name=args.logger_name,
+        record_dir=args.record_dir,
+        save_img=dict(
+            camera_views=args.save_camera_views,
+            image_width=args.image_width,
+            image_height=args.image_height,
+        ),
+    )
 
     episode_ids = list(range(len(env_task_set)))
 
@@ -94,7 +106,7 @@ if __name__ == "__main__":
         # ^ run
         saver.reset_run(ith_try)
 
-        for episode_id in episode_ids:
+        for episode_id in tqdm(episode_ids):
             # ^ episode
             saver.reset_episode(episode_id)
             if saver.episode_path.exists():
@@ -109,7 +121,7 @@ if __name__ == "__main__":
                 env_task["task_goal"][0], env_task["init_graph"]
             )
             saver.info(f"Human Goal: {pretty_repr(human_goal, indent_size=2)}")
-            episode_result = arena.run()
+            episode_result = arena.run(saver=saver)
             saver.save_episode(episode_result)
 
         saver.save_run()

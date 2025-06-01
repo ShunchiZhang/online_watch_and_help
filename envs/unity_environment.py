@@ -360,7 +360,7 @@ class UnityEnvironment(BaseUnityEnvironment):
             print("Error expanding scene")
             raise AssertionError
 
-        self.offset_cameras = self.comm.camera_count()[1]
+        self.num_static_cameras = self.offset_cameras = self.comm.camera_count()[1]
         if self.init_rooms[0] not in ["kitchen", "bedroom", "livingroom", "bathroom"]:
             rooms = self.rnd.sample(["kitchen", "bedroom", "livingroom", "bathroom"], 2)
         else:
@@ -525,6 +525,7 @@ class UnityEnvironment(BaseUnityEnvironment):
             raise NotImplementedError
 
         elif obs_type == "image":
+            return super().get_observation(agent_id, obs_type, info)
             camera_ids = [
                 self.offset_cameras
                 + agent_id * self.num_camera_per_agent

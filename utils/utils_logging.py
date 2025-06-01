@@ -4,7 +4,11 @@ import os
 import pickle
 from pathlib import Path
 
+import cv2
 from rich.logging import RichHandler
+from virtualhome.simulation.environment.unity_environment import (
+    UnityEnvironment as BaseUnityEnvironment,
+)
 
 
 def prettier(path):
@@ -78,7 +82,7 @@ def get_my_logger(
 
 
 class Saver:
-    def __init__(self, name, record_dir):
+    def __init__(self, name, record_dir, save_img):
         self.record_dir = record_dir
         self.log_filename = record_dir / f"{name}.log"
         self.logger = get_my_logger(name=name, file_name=self.log_filename)
@@ -86,6 +90,21 @@ class Saver:
 
         self.info(f"cwd: {Path.cwd()}")
         self.info(f"logging to '{self.log_filename}'")
+
+        self.img_w = save_img["image_width"]
+        self.img_h = save_img["image_height"]
+        camera_views = save_img["camera_views"]
+        view_options = set(BaseUnityEnvironment.camera_mapping.keys())
+        if camera_views.lower() == "all":
+            self.camera_views = view_options
+        elif camera_views in ("", None):
+            self.camera_views = []
+        else:
+            if isinstance(camera_views, str):
+                self.camera_views = [camera_views]
+            else:
+                self.camera_views = camera_views
+        assert all(view in view_options for view in self.camera_views)
 
     def _inherit_logging(self):
         self.debug = self.logger.debug
@@ -106,8 +125,9 @@ class Saver:
 
     def reset_episode(self, episode_id):
         self.episode_id = episode_id
-        self.episode_path = self.run_dir / f"episode_{episode_id:02d}.json"
-        self.episode_graph_path = self.run_dir / f"episode_{episode_id:02d}.graph.pik"
+        self.episode_dir = self.run_dir / f"episode_{episode_id:02d}"
+        self.episode_path = self.episode_dir / "result.json"
+        self.episode_graph_path = self.episode_dir / "graph.pik"
 
         if self.episode_path.exists():
             with self.episode_path.open("r") as f:
@@ -170,6 +190,11 @@ class Saver:
                 ensure_ascii=False,
             )
         prettier(self.run_path)
+
+    def save_camera_img(self, img, agent_id, view, step):
+        img_path = self.episode_dir / f"agent{agent_id}" / view / f"{step:04d}.png"
+        img_path.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(img_path, img)
 
     @property
     def current_episode(self):
