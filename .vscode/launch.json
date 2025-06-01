@@ -5,10 +5,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "test_single_agent_structured",
+      "name": "test_multi_agent_structured",
       "type": "debugpy",
       "request": "launch",
-      "program": "testing_agents/test_single_agent_structured.py",
+      "program": "testing_agents/test_multi_agent_structured.py",
       "console": "integratedTerminal",
       "justMyCode": false,
       "cwd": "${workspaceFolder}",
@@ -20,7 +20,7 @@
         "--executable_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
         "--dataset_path=./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik",
         "--debug",
-        "--num_agents=2",
+        "--num_agents=1",
       ]
     },
     {
