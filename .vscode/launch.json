@@ -21,6 +21,9 @@
         "--dataset_path=./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik",
         "--debug",
         "--num_agents=1",
+        "--base_port=8089",
+        "--image_width=160",
+        "--image_height=120",
       ]
     },
     {
@@ -36,7 +39,7 @@
         "PYTHONPATH": "${workspaceFolder}"
       },
       "args": [
-        "--exec_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app"
+        "--exec_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
       ]
     }
   ]

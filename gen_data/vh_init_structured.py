@@ -7,7 +7,7 @@ import random
 import numpy as np
 from init_goal_setter.init_goal_base import SetInitialGoal
 from init_goal_setter.tasks_structured import Task
-from simulation.unity_simulator import comm_unity
+from virtualhome.simulation.unity_simulator import comm_unity
 
 from utils import utils_goals
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     else:
         pass
         # args.apt_str = '0,1,2,4,5'
-    with open(f"{curr_dir}/data/init_pool_structured.json") as file:
+    with open("gen_data/data/init_pool_structured.json") as file:
         init_pool = json.load(file)
     # comm = comm_unity.UnityCommunication()
     if args.use_editor:
@@ -99,7 +99,7 @@ if __name__ == "__main__":
 
     ## -------------------------------------------------------------
     ## step3 load object size
-    with open(f"{curr_dir}/data/class_name_size.json", "r") as file:
+    with open("gen_data/data/class_name_size.json", "r") as file:
         class_name_size = json.load(file)
 
     ## -------------------------------------------------------------
@@ -121,8 +121,15 @@ if __name__ == "__main__":
 
     apartment_ids = [int(apt_id) for apt_id in args.apt_str.split(",")]
     if args.task == "all":
-        tasks = ["setup_table", "prepare_food", "watch_tv"]
+        # tasks = ["setup_table", "prepare_food", "watch_tv"]
         # tasks =  ["setup_table", "put_fridge", "prepare_food", "put_dishwasher"]
+        tasks = [
+            "setup_table",
+            "put_fridge",
+            "prepare_food",
+            "put_dishwasher",
+            "watch_tv",
+        ]
     else:
         tasks = [args.task]
 
@@ -138,7 +145,7 @@ if __name__ == "__main__":
             # if apartment != 4: continue
             # apartment = 3
 
-            with open(f"{curr_dir}/data/object_info_final.json", "r") as file:
+            with open("gen_data/data/object_info_final.json", "r") as file:
                 obj_position = json.load(file)
 
             # pdb.set_trace()bathroomcounter
@@ -422,7 +429,7 @@ if __name__ == "__main__":
     pickle.dump(
         env_task_set,
         open(
-            f"{curr_dir}/../dataset/structured_agent/{args.split}_env_task_set_{args.num_per_apartment}_{args.mode}_task.{args.task}_apts.{args.apt_str}.pik",
+            f"dataset/structured_agent/{args.split}_env_task_set_{args.num_per_apartment}_{args.mode}_task.{args.task}_apts.{args.apt_str}.pik",
             "wb",
         ),
     )
