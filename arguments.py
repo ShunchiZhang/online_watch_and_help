@@ -11,6 +11,35 @@ def get_args():
         help="The directory to save the results",
     )
     parser.add_argument(
+        "--save_camera_views",
+        type=str,
+        nargs="+",
+        default="third_behind",
+        choices=[
+            "third_front",
+            "third_isometric",
+            "first_front",
+            "third_behind",
+            "third_oblique",
+            "first_right",
+            "first_left",
+            "first_back",
+        ],
+        help="The camera views to save",
+    )
+    parser.add_argument(
+        "--image_width",
+        type=int,
+        default=640,
+        help="The width of the image to save",
+    )
+    parser.add_argument(
+        "--image_height",
+        type=int,
+        default=480,
+        help="The height of the image to save",
+    )
+    parser.add_argument(
         "--logger_name",
         type=str,
         default="main",
@@ -54,10 +83,10 @@ def get_args():
         help="Observation types to use. Can specify multiple types.",
     )
     parser.add_argument(
-        "--max-episode-length",
+        "--max_steps",
         type=int,
         default=200,
-        help="number of episodes",
+        help="number of steps",
     )
     parser.add_argument(
         "--executable_file",
@@ -65,7 +94,7 @@ def get_args():
         default="../executable/linux_exec_v3.x86_64",
     )
     parser.add_argument(
-        "--base-port",
+        "--base_port",
         type=int,
         default=8080,
     )
@@ -75,7 +104,7 @@ def get_args():
         default="2",
     )
     parser.add_argument(
-        "--use-editor",
+        "--use_editor",
         action="store_true",
         default=False,
         help="whether to use an editor or executable",
