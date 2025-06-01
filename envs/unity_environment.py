@@ -3,7 +3,6 @@ import math
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from termcolor import colored
 from virtualhome.simulation.environment.unity_environment import (
     UnityEnvironment as BaseUnityEnvironment,
 )
@@ -238,7 +237,7 @@ class UnityEnvironment(BaseUnityEnvironment):
                 ]
         return new_graph
 
-    def reset(self, environment_graph=None, task_id=None):
+    def reset(self, environment_graph=None, task_id=None, helper_use_gt_goal=None):
         # Make sure that characters are out of graph, and ids are ok
         # ipdb.set_trace()
         if task_id is None:
@@ -251,7 +250,7 @@ class UnityEnvironment(BaseUnityEnvironment):
         self.init_graph = copy.deepcopy(env_task["init_graph"])
         self.init_rooms = env_task["init_rooms"]
         self.task_goal = env_task["task_goal"]
-        if self.task_goal[1] is None or len(self.task_goal[1]) == 0:
+        if helper_use_gt_goal:
             self.task_goal[1] = self.task_goal[0]
 
         if self.convert_goal:
@@ -392,7 +391,7 @@ class UnityEnvironment(BaseUnityEnvironment):
         script_list, script_dict = utils.convert_action(action_dict)
         failed_execution = False
         if len(script_list[0]) > 0:
-            print(script_list)
+            # print(script_list)
             if self.recording_options["recording"]:
                 success, message = self.comm.render_script(
                     script_list,
@@ -408,7 +407,7 @@ class UnityEnvironment(BaseUnityEnvironment):
                     self.agent_object_touched.append(objid)
                     success, message = True, {}
                 else:
-                    print(colored(script_list, "yellow"))
+                    # print(colored(script_list, "yellow"))
                     success, message = self.comm.render_script(
                         script_list,
                         recording=False,

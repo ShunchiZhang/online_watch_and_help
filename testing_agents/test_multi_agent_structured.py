@@ -1,14 +1,12 @@
 import pickle
 from pathlib import Path
 
-from rich.pretty import pretty_repr
 from tqdm import tqdm
 
 from agents.MCTS_agent_particle_v2_instance import MCTS_agent_particle_v2_instance
 from algos.arena_mp2 import ArenaMP
 from arguments import get_args
 from envs.unity_environment import UnityEnvironment
-from utils import utils_environment as utils_env
 from utils import utils_graph, utils_logging
 
 if __name__ == "__main__":
@@ -19,6 +17,18 @@ if __name__ == "__main__":
     env_task_set = utils_graph.fix_graph(env_task_set)
     env_task_set = utils_graph.fix_multiple_location(
         env_task_set, verbose=False, drop_env=True
+    )
+
+    args.record_dir = Path(args.record_dir) / args.dataset_path.stem
+    args.record_dir.mkdir(parents=True, exist_ok=True)
+    saver = utils_logging.Saver(
+        name=args.logger_name,
+        record_dir=args.record_dir,
+        save_img=dict(
+            camera_views=args.save_camera_views,
+            image_width=args.image_width,
+            image_height=args.image_height,
+        ),
     )
 
     args_agent_common = dict(
@@ -86,18 +96,7 @@ if __name__ == "__main__":
         agent_fn=agents,
         use_sim_agent=False,
         save_belief=False,
-    )
-
-    args.record_dir = Path(args.record_dir) / args.dataset_path.stem
-    args.record_dir.mkdir(parents=True, exist_ok=True)
-    saver = utils_logging.Saver(
-        name=args.logger_name,
-        record_dir=args.record_dir,
-        save_img=dict(
-            camera_views=args.save_camera_views,
-            image_width=args.image_width,
-            image_height=args.image_height,
-        ),
+        saver=saver,
     )
 
     episode_ids = list(range(len(env_task_set)))
@@ -112,16 +111,14 @@ if __name__ == "__main__":
             if saver.episode_path.exists():
                 continue
 
-            for it_agent, agent in enumerate(arena.agents):
-                agent.seed = (it_agent + ith_try * 2) * 5
+            for ith_agent, agent in enumerate(arena.agents):
+                agent.seed = (ith_agent + ith_try * 2) * 5
 
-            arena.reset(episode_id)
-            env_task = env_task_set[episode_id]
-            human_goal = utils_env.convert_goal(
-                env_task["task_goal"][0], env_task["init_graph"]
-            )
-            saver.info(f"Human Goal: {pretty_repr(human_goal, indent_size=2)}")
-            episode_result = arena.run(saver=saver)
+            arena.reset(episode_id, helper_use_gt_goal=False)
+
+            saver.print_episode_info(env_task_set[episode_id])
+
+            episode_result = arena.run()
             saver.save_episode(episode_result)
 
         saver.save_run()

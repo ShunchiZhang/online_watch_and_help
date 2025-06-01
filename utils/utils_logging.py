@@ -136,6 +136,11 @@ class Saver:
         else:
             self.info(f">>>>> start: {self.current_episode} >>>>>")
 
+    def print_episode_info(self, env_task):
+        self.info(f"apt_id:    {env_task['env_id']:02d}")
+        self.info(f"task_name: {env_task['task_name']}")
+        self.info(f"goal:      {env_task['task_goal'][0]}")
+
     def save_episode(self, episode_result):
         graph_keys = {
             "init_unity_graph",
