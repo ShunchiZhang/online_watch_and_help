@@ -9,113 +9,125 @@ from envs.arena_mp2 import ArenaMP
 from envs.unity_environment import UnityEnvironment
 from utils import utils_graph, utils_logging
 
-if __name__ == "__main__":
-    args = get_args()
 
-    args.dataset_path = Path(args.dataset_path)
-    env_task_set = pickle.load(args.dataset_path.open("rb"))
-    env_task_set = utils_graph.fix_graph(env_task_set)
-    env_task_set = utils_graph.fix_multiple_location(
-        env_task_set, verbose=False, drop_env=True
-    )
+class Runner:
+    def __init__(self, args):
+        self.args = args
+        self._get_env_task_set()
+        self._get_saver()
+        self._get_agents()
+        self._get_env()
+        self.arena = ArenaMP(self.env, self.agents, self.saver)
 
-    args.record_dir = Path(args.record_dir) / args.dataset_path.stem
-    args.record_dir.mkdir(parents=True, exist_ok=True)
-    saver = utils_logging.Saver(
-        name=args.logger_name,
-        record_dir=args.record_dir,
-        save_img=dict(
-            camera_views=args.save_camera_views,
-            image_width=args.image_width,
-            image_height=args.image_height,
-        ),
-    )
+    def _get_saver(self):
+        self.args.record_dir = Path(self.args.record_dir) / self.args.dataset_path.stem
 
-    args_agent_common = dict(
-        recursive=False,
-        max_episode_length=20,  # MCTS:expand()
-        num_simulation=20,
-        max_rollout_steps=5,
-        c_init=0.1,
-        c_base=100,
-        num_samples=1,
-        logging=True,
-        logging_graphs=True,
-        agent_params=dict(
-            open_cost=0,
-            should_close=False,
-            walk_cost=0.05,
-            belief=dict(
-                forget_rate=0,
-                belief_type="uniform",
+        self.args.record_dir.mkdir(parents=True, exist_ok=True)
+        self.saver = utils_logging.Saver(
+            name=self.args.logger_name,
+            record_dir=self.args.record_dir,
+            save_img=dict(
+                camera_views=self.args.save_camera_views,
+                image_width=self.args.image_width,
+                image_height=self.args.image_height,
             ),
-        ),
-    )
+            save_belief=False,
+        )
 
-    args_agents = []
-    for i in range(args.num_agents):
-        args_agent = dict(agent_id=i + 1, char_index=i, **args_agent_common)
-        args_agent["agent_params"]["obs_type"] = args.obs_type[i]
+    def _get_env_task_set(self):
+        self.args.dataset_path = Path(self.args.dataset_path)
+        with self.args.dataset_path.open("rb") as f:
+            env_task_set = pickle.load(f)
+        env_task_set = utils_graph.fix_graph(env_task_set)
+        env_task_set = utils_graph.fix_multiple_location(
+            env_task_set, verbose=False, drop_env=True
+        )
+        self.env_task_set = env_task_set
 
-        if args.debug:
-            args_agent["num_particles"] = 1 if args.obs_type[i] == "full" else 3
-            args_agent["num_processes"] = 0
-        else:
-            num_particles = 1 if args.obs_type[i] == "full" else args.num_particles
-            args_agent["num_particles"] = num_particles
-            args_agent["num_processes"] = num_particles
+    def _get_agents(self):
+        args_agent_common = dict(
+            recursive=False,
+            max_episode_length=20,  # MCTS:expand()
+            num_simulation=20,
+            max_rollout_steps=5,
+            c_init=0.1,
+            c_base=100,
+            num_samples=1,
+            logging=True,
+            logging_graphs=True,
+            agent_params=dict(
+                open_cost=0,
+                should_close=False,
+                walk_cost=0.05,
+                belief=dict(
+                    forget_rate=0,
+                    belief_type="uniform",
+                ),
+            ),
+        )
+        args_agents = []
 
-        args_agents.append(args_agent)
+        for i in range(self.args.num_agents):
+            args_agent = dict(agent_id=i + 1, char_index=i, **args_agent_common)
+            args_agent["agent_params"]["obs_type"] = self.args.obs_type[i]
 
-    agents = [lambda x, y: MCTS_agent(**args_agent) for args_agent in args_agents]
+            if self.args.debug:
+                args_agent["num_particles"] = (
+                    1 if self.args.obs_type[i] == "full" else 3
+                )
+                args_agent["num_processes"] = 0
+            else:
+                num_particles = (
+                    1 if self.args.obs_type[i] == "full" else self.args.num_particles
+                )
+                args_agent["num_particles"] = num_particles
+                args_agent["num_processes"] = num_particles
 
-    def env_fn(arena_id):
-        return UnityEnvironment(
-            num_agents=len(agents),
-            max_episode_length=args.max_steps,
-            port_id=arena_id,
+            args_agents.append(args_agent)
+
+        self.agents = [MCTS_agent(**args_agent) for args_agent in args_agents]
+
+    def _get_env(self):
+        self.env = UnityEnvironment(
+            num_agents=len(self.agents),
+            max_episode_length=self.args.max_steps,
+            port_id=0,
             convert_goal=True,
-            env_task_set=env_task_set,
-            observation_types=args.obs_type,
-            use_editor=args.use_editor,
+            env_task_set=self.env_task_set,
+            observation_types=self.args.obs_type,
+            use_editor=self.args.use_editor,
             executable_args=dict(
-                file_name=args.executable_file,
+                file_name=self.args.executable_file,
                 x_display="0",
                 no_graphics=False,
             ),
-            base_port=args.base_port,
+            base_port=self.args.base_port,
         )
 
-    arena = ArenaMP(
-        max_number_steps=args.max_steps,
-        arena_id=0,
-        environment_fn=env_fn,
-        agent_fn=agents,
-        use_sim_agent=False,
-        save_belief=False,
-        saver=saver,
-    )
+    def run(self):
+        if self.args.episode_ids is None:
+            self.args.episode_ids = list(range(len(self.env_task_set)))
+        if self.args.debug_len is not None:
+            self.args.episode_ids = self.args.episode_ids[: self.args.debug_len]
 
-    episode_ids = list(range(len(env_task_set)))
+        for ith_try in range(self.args.num_tries):
+            self.saver.reset_run(ith_try)
 
-    for ith_try in range(args.num_tries):
-        # ^ run
-        saver.reset_run(ith_try)
+            for episode_id in track(self.args.episode_ids):
+                self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
+                if self.saver.episode_path.exists():
+                    continue
 
-        for episode_id in track(episode_ids):
-            # ^ episode
-            saver.reset_episode(episode_id)
-            if saver.episode_path.exists():
-                continue
+                for ith_agent, agent in enumerate(self.arena.agents):
+                    agent.seed = (ith_agent + ith_try * 2) * 5
 
-            for ith_agent, agent in enumerate(arena.agents):
-                agent.seed = (ith_agent + ith_try * 2) * 5
+                self.arena.reset(episode_id, helper_use_gt_goal=False)
+                self.arena.run()
+                self.saver.save_episode()
 
-            arena.reset(episode_id, helper_use_gt_goal=False)
+            self.saver.save_run()
 
-            saver.print_episode_info(env_task_set[episode_id])
 
-            episode_result = arena.run()
-            saver.save_episode(episode_result)
-
-        saver.save_run()
+if __name__ == "__main__":
+    runner = Runner(args=get_args())
+    runner.run()

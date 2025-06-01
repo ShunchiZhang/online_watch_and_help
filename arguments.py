@@ -64,6 +64,19 @@ def get_args():
         help="Whether to run in debug mode (#processes=0)",
     )
     parser.add_argument(
+        "--debug_len",
+        type=int,
+        default=None,
+        help="The number of episodes to run in debug mode",
+    )
+    parser.add_argument(
+        "--episode_ids",
+        type=int,
+        nargs="+",
+        default=None,
+        help="The episode ids to run",
+    )
+    parser.add_argument(
         "--num_tries",
         type=int,
         default=1,

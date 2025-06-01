@@ -547,22 +547,11 @@ class MCTS_agent:
 
         return action, info
 
-    def reset(
-        self,
-        observed_graph,
-        gt_graph,
-        task_goal,
-        seed=0,
-        simulator_type="python",
-        is_alice=False,
-    ):
+    def reset(self, gt_graph, seed):
         self.last_action = None
         self.last_subgoal = None
         self.failed_action = False
         self.init_gt_graph = gt_graph
-        """TODO: do no need this?"""
-        # if 'waterglass' not in [node['class_name'] for node in self.init_gt_graph['nodes']]:
-        #    ipdb.set_trace()
         self.belief = belief.Belief(
             gt_graph,
             agent_id=self.agent_id,

@@ -82,7 +82,7 @@ def get_my_logger(
 
 
 class Saver:
-    def __init__(self, name, record_dir, save_img):
+    def __init__(self, name, record_dir, save_img, save_belief):
         self.record_dir = record_dir
         self.log_filename = record_dir / f"{name}.log"
         self.logger = get_my_logger(name=name, file_name=self.log_filename)
@@ -105,6 +105,8 @@ class Saver:
             else:
                 self.camera_views = camera_views
         assert all(view in view_options for view in self.camera_views)
+
+        self.save_belief = save_belief
 
     def flush(self):
         for handler in self.logger.handlers:
@@ -131,7 +133,7 @@ class Saver:
         self.run_path = self.run_dir / "results.json"
         self.run_result = dict()  # episode_id: (success, steps)
 
-    def reset_episode(self, episode_id):
+    def reset_episode(self, episode_id, env_task):
         self.episode_id = episode_id
         self.episode_dir = self.run_dir / f"episode_{episode_id:02d}"
         self.episode_path = self.episode_dir / "result.json"
@@ -139,17 +141,16 @@ class Saver:
 
         if self.episode_path.exists():
             with self.episode_path.open("r") as f:
-                episode_result = json.load(f)
-                self.record_episode(episode_result)
+                saved_info = json.load(f)
+                self.record_episode(saved_info)
         else:
             self.info(f">>>>> start: {self.current_episode} >>>>>")
+            self.info(f"apt_id:    {env_task['env_id']:02d}")
+            self.info(f"task_name: {env_task['task_name']}")
+            self.info(f"goal:      {env_task['task_goal'][0]}")
 
-    def print_episode_info(self, env_task):
-        self.info(f"apt_id:    {env_task['env_id']:02d}")
-        self.info(f"task_name: {env_task['task_name']}")
-        self.info(f"goal:      {env_task['task_goal'][0]}")
-
-    def save_episode(self, episode_result):
+    def save_episode(self):
+        saved_info = self.episode_saved_info
         graph_keys = {
             "init_unity_graph",
             "belief",
@@ -159,21 +160,47 @@ class Saver:
             "obs",
         }
 
-        graph_data = {k: episode_result[k] for k in graph_keys if k in episode_result}
+        graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
         with self.episode_graph_path.open("wb") as f:
             pickle.dump(graph_data, f)
 
-        other_data = {k: v for k, v in episode_result.items() if k not in graph_keys}
+        other_data = {k: v for k, v in saved_info.items() if k not in graph_keys}
         with self.episode_path.open("w") as f:
             json.dump(other_data, f, ensure_ascii=False)
         prettier(self.episode_path)
-        self.record_episode(episode_result)
 
-    def record_episode(self, episode_result):
-        success = episode_result["success"]
-        steps = episode_result["steps"]
+        self.record_episode(saved_info)
+
+    def record_episode(self, saved_info):
+        success = saved_info["success"]
+        steps = saved_info["steps"]
         self.run_result[self.episode_id] = (success, steps)
         self.info(f"[{self.current_episode}] success: {success}, steps: {steps}")
+
+    def record_step(self, infos, actions, agent_info):
+        saved_info = self.episode_saved_info
+        if "satisfied_goals" in infos:
+            saved_info["goals_finished"].append(infos["satisfied_goals"])
+        for agent_id, action in actions.items():
+            saved_info["action"][agent_id].append(action)
+
+        if "graph" in infos:
+            saved_info["graph"].append(infos["graph"])
+
+        for agent_id, info in agent_info.items():
+            if self.save_belief:
+                if "belief_graph" in info:
+                    saved_info["belief_graph"][agent_id].append(info["belief_graph"])
+                if "belief_room" in info:
+                    saved_info["belief_room"][agent_id].append(info["belief_room"])
+                if "belief" in info:
+                    saved_info["belief"][agent_id].append(info["belief"])
+            if "plan" in info:
+                saved_info["plan"][agent_id].append(info["plan"][:3])
+            if "obs" in info:
+                saved_info["obs"][agent_id].append([node["id"] for node in info["obs"]])
+        self.episode_saved_info = saved_info
+        return saved_info
 
     def save_run(self):
         failure_list = []
