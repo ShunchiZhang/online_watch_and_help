@@ -110,7 +110,7 @@ class Saver:
         self.episode_graph_path = self.run_dir / f"episode_{episode_id:02d}.graph.pik"
 
         if self.episode_path.exists():
-            with open(self.episode_path, "r") as f:
+            with self.episode_path.open("r") as f:
                 episode_result = json.load(f)
                 self.record_episode(episode_result)
         else:
@@ -127,7 +127,7 @@ class Saver:
         }
 
         graph_data = {k: episode_result[k] for k in graph_keys if k in episode_result}
-        with open(self.episode_graph_path, "wb") as f:
+        with self.episode_graph_path.open("wb") as f:
             pickle.dump(graph_data, f)
 
         other_data = {k: v for k, v in episode_result.items() if k not in graph_keys}
@@ -154,8 +154,10 @@ class Saver:
         avg_steps = sum(steps_list) / len(steps_list)
         num_failures = len(failure_list)
         total_episodes = len(self.run_result)
+        self.info(f">>>>> summary: run_{self.run_id} >>>>>")
         self.info(f"avg_steps: {avg_steps:.1f}")
         self.info(f"failures: {failure_list} ({num_failures}/{total_episodes})")
+        self.info(f"<<<<< summary: run_{self.run_id} <<<<<")
 
         with self.run_path.open("w") as f:
             json.dump(

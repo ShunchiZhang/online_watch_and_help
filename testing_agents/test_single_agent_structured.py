@@ -1,4 +1,3 @@
-import json
 import pickle
 from pathlib import Path
 
@@ -99,8 +98,6 @@ if __name__ == "__main__":
             # ^ episode
             saver.reset_episode(episode_id)
             if saver.episode_path.exists():
-                with open(saver.episode_path, "r") as f:
-                    episode_result = json.load(f)
                 continue
 
             for it_agent, agent in enumerate(arena.agents):
