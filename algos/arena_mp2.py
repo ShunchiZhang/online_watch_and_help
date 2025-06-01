@@ -1,6 +1,5 @@
 import atexit
 import copy
-import logging
 import random
 import time
 import traceback
@@ -672,17 +671,18 @@ class ArenaMP(object):
                 num_failed += 1
             else:
                 num_failed = 0
-            if num_failed > 10 or num_repeated > 20 or num_nomove > 5:
-                print("Many failures", num_failed, num_repeated)
+            if num_failed > 10 or num_repeated > 20:
+                print("Many failures", (num_failed, num_repeated, num_nomove))
                 # logging.info("Many failures")
-                raise utils_exception.ManyFailureException
+                done = True
+                infos["finished"] = False
 
             print(f"\nAgent Step: {step}")
             print("----------")
             # print("Goals:", self.env.task_goal)
             print("Action: ", actions, new_agent_position)
             prev_agent_position = new_agent_position
-            logging.info(" | ".join(actions.values()))
+            # logging.info(" | ".join(actions.values()))
             print("Plan:", agent_info[0]["plan"][:4])
             print("----------")
             success = infos["finished"]
@@ -720,6 +720,7 @@ class ArenaMP(object):
         saved_info["obs"].append([node["id"] for node in obs[0]["nodes"]])
         # saved_info['obs'].append()
 
-        saved_info["finished"] = success
+        saved_info["success"] = success
+        saved_info["steps"] = self.env.steps
         self.saved_info = saved_info
-        return success, self.env.steps, saved_info
+        return saved_info

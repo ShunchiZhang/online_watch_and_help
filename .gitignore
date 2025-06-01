@@ -1,5 +1,6 @@
 __pycache__/
 .env
 
+logs/
 *.pik
 port_*.txt

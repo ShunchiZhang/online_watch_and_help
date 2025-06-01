@@ -7,7 +7,7 @@ from termcolor import colored
 from virtualhome.simulation.environment.unity_environment import (
     UnityEnvironment as BaseUnityEnvironment,
 )
-from virtualhome.simulation.evolving_graph.utils import utils as utils_env
+from virtualhome.simulation.evolving_graph import utils as utils_env
 
 from utils import utils_environment as utils
 from utils import utils_environment as utils_env2

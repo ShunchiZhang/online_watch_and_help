@@ -2,8 +2,44 @@ import argparse
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="RL")
+    parser = argparse.ArgumentParser()
 
+    parser.add_argument(
+        "--record_dir",
+        type=str,
+        default="logs",
+        help="The directory to save the results",
+    )
+    parser.add_argument(
+        "--logger_name",
+        type=str,
+        default="main",
+        help="The name of the logger. Logging to logger_name.log",
+    )
+    parser.add_argument(
+        "--num_agents",
+        type=int,
+        default=2,
+        help="The number of agents to test",
+    )
+    parser.add_argument(
+        "--num_particles",
+        type=int,
+        default=3,
+        help="The number of particles to use",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Whether to run in debug mode (#processes=0)",
+    )
+    parser.add_argument(
+        "--num_tries",
+        type=int,
+        default=1,
+        help="The number of times to run the same environment to reduce variance",
+    )
     parser.add_argument(
         "--dataset_path",
         type=str,
@@ -12,8 +48,10 @@ def get_args():
     parser.add_argument(
         "--obs_type",
         type=str,
-        default="partial",
+        nargs="+",
+        default=["full", "full"],
         choices=["full", "rgb", "visibleid", "partial"],
+        help="Observation types to use. Can specify multiple types.",
     )
     parser.add_argument(
         "--max-episode-length",

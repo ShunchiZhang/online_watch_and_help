@@ -1,0 +1,17 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Project Structure
+
+- [agents/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/agents): Contains agent implementations, e.g., [MCTS_agent_particle_v2_instance.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/agents/MCTS_agent_particle_v2_instance.py) for MCTS-based agents.
+- [algos/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/algos): Algorithm logic, e.g., [arena_mp2.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/algos/arena_mp2.py) for multi-process arena simulation.
+- [envs/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/envs): Environment wrappers, e.g., [unity_environment.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/envs/unity_environment.py) for Unity3D-based VirtualHome simulation environment integration.
+- [utils/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/utils): Utility functions, e.g., [utils_environment.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/utils/utils_environment.py) for environment helpers.
+- [gen_data/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/gen_data): Data generation scripts and initial goal/task setup, e.g., [vh_init_structured.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/gen_data/vh_init_structured.py).
+- [dataset/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/dataset): Datasets for training/testing, e.g., [structured_agent/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/dataset/structured_agent) with .pik files.
+- [testing_agents/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/testing_agents): Testing scripts, e.g., [test_single_agent_structured.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/testing_agents/test_single_agent_structured.py) for agent evaluation.
+- [MCTS/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/MCTS): MCTS algorithm implementations.
+- [z/](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/z): Miscellaneous scripts and notebooks, e.g., [clean.ipynb](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/z/clean.ipynb), [download.sh](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/z/download.sh).
+- [arguments.py](mdc:nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/nopa/arguments.py): Argument parser for experiment configuration.
