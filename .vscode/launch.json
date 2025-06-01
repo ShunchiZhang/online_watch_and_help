@@ -5,10 +5,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "test_multi_agent_structured",
+      "name": "main",
       "type": "debugpy",
       "request": "launch",
-      "program": "testing_agents/test_multi_agent_structured.py",
+      "program": "main.py",
       "console": "integratedTerminal",
       "justMyCode": false,
       "cwd": "${workspaceFolder}",
@@ -21,7 +21,7 @@
         "--dataset_path=./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik",
         "--debug",
         "--num_agents=1",
-        "--base_port=8089",
+        "--base_port=8090",
         "--image_width=160",
         "--image_height=120",
       ]

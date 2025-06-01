@@ -188,6 +188,7 @@ class ArenaMP(object):
             for ith_agent in range(self.num_agents):
                 plan = agent_info[ith_agent]["plan"]
                 self.saver.info(f"--> agent {ith_agent}: {plan}")
+            self.saver.flush()
             # print("Goals:", self.env.task_goal)
             # self.saver.info("Action: ", actions, new_agent_position)
             prev_agent_position = new_agent_position

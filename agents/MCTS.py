@@ -11,7 +11,7 @@ from envs.graph_env import VhGraphEnv
 from utils import utils_environment as utils_env
 
 
-class MCTS_particles_v2_instance:
+class MCTS:
     def __init__(
         self,
         gt_graph,

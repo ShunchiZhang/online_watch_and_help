@@ -1,11 +1,11 @@
 import pickle
 from pathlib import Path
 
-from tqdm import tqdm
+from rich.progress import track
 
-from agents.MCTS_agent_particle_v2_instance import MCTS_agent_particle_v2_instance
-from algos.arena_mp2 import ArenaMP
+from agents.MCTS_agent import MCTS_agent
 from arguments import get_args
+from envs.arena_mp2 import ArenaMP
 from envs.unity_environment import UnityEnvironment
 from utils import utils_graph, utils_logging
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     args_agent_common = dict(
         recursive=False,
-        max_episode_length=20,  # MCTS_particles_v2_instance:expand()
+        max_episode_length=20,  # MCTS:expand()
         num_simulation=20,
         max_rollout_steps=5,
         c_init=0.1,
@@ -67,10 +67,7 @@ if __name__ == "__main__":
 
         args_agents.append(args_agent)
 
-    agents = [
-        lambda x, y: MCTS_agent_particle_v2_instance(**args_agent)
-        for args_agent in args_agents
-    ]
+    agents = [lambda x, y: MCTS_agent(**args_agent) for args_agent in args_agents]
 
     def env_fn(arena_id):
         return UnityEnvironment(
@@ -105,7 +102,7 @@ if __name__ == "__main__":
         # ^ run
         saver.reset_run(ith_try)
 
-        for episode_id in tqdm(episode_ids):
+        for episode_id in track(episode_ids):
             # ^ episode
             saver.reset_episode(episode_id)
             if saver.episode_path.exists():

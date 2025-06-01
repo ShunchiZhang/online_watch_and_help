@@ -106,6 +106,14 @@ class Saver:
                 self.camera_views = camera_views
         assert all(view in view_options for view in self.camera_views)
 
+    def flush(self):
+        for handler in self.logger.handlers:
+            handler.flush()
+            try:
+                os.fsync(handler.stream.fileno())
+            except Exception:
+                pass
+
     def _inherit_logging(self):
         self.debug = self.logger.debug
         self.info = self.logger.info
