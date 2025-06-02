@@ -395,15 +395,11 @@ if __name__ == "__main__":
         init_graph = problem_setup["init_graph"]
         goal = problem_setup["goal"][task_name_red]
 
-        goals = utils_goals.convert_goal_spec(
-            task_name, goal, init_graph, exclude=["cutleryknife"]
-        )
+        goals = utils_goals.convert_goal_spec(goal)
 
         goal_noise = problem_setup["goal"]["noise"]
 
-        goals_noise = utils_goals.convert_goal_spec(
-            "noise", goal_noise, init_graph, exclude=["cutleryknife"]
-        )
+        goals_noise = utils_goals.convert_goal_spec(goal_noise)
         print("env_id:", env_id)
         print("task_name:", task_name)
         print("goals:", goals)
