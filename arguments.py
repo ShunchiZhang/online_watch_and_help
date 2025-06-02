@@ -1,6 +1,61 @@
 import argparse
 
 
+def add_autotom_args(parser):
+    parser.add_argument(
+        "--helper_class",
+        type=str,
+        default="AutoToM",
+        choices=["AutoToM", "MCTS"],
+        help="The class of the helper to use",
+    )
+    parser.add_argument(
+        "--autotom_thres_grab",
+        type=float,
+        default=0.80,
+        help="The threshold for the grab action in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_thres_put",
+        type=float,
+        default=0.60,
+        help="The threshold for the put action in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_thres_filter",
+        type=float,
+        default=0.10,
+        help="The threshold for the particle filter in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_num_particles",
+        type=int,
+        default=5,
+        help="The number of particles to use in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_llm_name",
+        type=str,
+        default="gpt-4o",
+        choices=["gpt-4o", "o3-mini"],
+        help="The name of the LLM to use in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_method",
+        type=str,
+        choices=["autotom", "llm"],
+        default="autotom",
+        help="The method to use in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_start_at_put",
+        action="store_true",
+        default=False,
+        help="Whether to start AutoToM at the beginning or wait for human's first putback action",
+    )
+    return parser
+
+
 def get_args():
     parser = argparse.ArgumentParser()
 
@@ -77,7 +132,7 @@ def get_args():
         help="The episode ids to run",
     )
     parser.add_argument(
-        "--num_tries",
+        "--num_runs",
         type=int,
         default=1,
         help="The number of times to run the same environment to reduce variance",
@@ -122,6 +177,8 @@ def get_args():
         default=False,
         help="whether to use an editor or executable",
     )
+
+    parser = add_autotom_args(parser)
 
     args = parser.parse_args()
     return args

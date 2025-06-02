@@ -207,7 +207,7 @@ class Subgoal:
         self.prep = self.name.split("_")[0]
 
     def __str__(self):
-        return f"{self.cnt} of {self.obj_nodes} => {self.tgt_nodes}"
+        return f"{self.tgt_nodes} <== {self.cnt} of {self.obj_nodes}"
 
     def __repr__(self):
         return self.__str__()
@@ -221,24 +221,23 @@ class Subgoal:
 
 class Goal:
     def __init__(self, goal, eg):
-        self._goal = goal
-        self._eg = eg
+        # * convert `goal` to `goal_spec`
+        if isinstance(list(goal.values())[0], int):
+            goal = utils_env.convert_goal(goal, eg._dictionary)
 
-        self.lg = get_my_logger()
-
+        self.eg = eg
         self.subgoals = []
-
         for subgoal_name, subgoal in goal.items():
             name = subgoal_name
             cnt = subgoal["count"]
             obj_ids = subgoal["grab_obj_ids"]
             tgt_ids = subgoal["container_ids"]
-            obj_nodes = [self._eg[obj_id] for obj_id in obj_ids]
-            tgt_nodes = [self._eg[tgt_id] for tgt_id in tgt_ids]
+            obj_nodes = [eg[obj_id] for obj_id in obj_ids]
+            tgt_nodes = [eg[tgt_id] for tgt_id in tgt_ids]
             self.subgoals.append(Subgoal(name, cnt, obj_nodes, tgt_nodes))
 
     def __str__(self):
-        return "\n".join([f"[{i}] {sg}" for i, sg in enumerate(self.subgoals)])
+        return "\n".join([str(subgoal) for subgoal in self.subgoals])
 
     def __repr__(self):
         return self.__str__()

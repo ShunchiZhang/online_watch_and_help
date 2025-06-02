@@ -1,5 +1,4 @@
 import copy
-import random
 import time
 
 from agents import MCTS, MCTS_utils, belief
@@ -31,16 +30,12 @@ class MCTS_agent:
         agent_params={},
         get_plan_states=False,
         get_plan_cost=False,
-        seed=None,
     ):
         self.agent_type = "MCTS"
         self.verbose = False
         self.recursive = recursive
 
         # self.env = unity_env.env
-        if seed is None:
-            seed = random.randint(0, 100)
-        self.seed = seed
         self.logging = logging
         self.logging_graphs = logging_graphs
 
@@ -547,7 +542,7 @@ class MCTS_agent:
 
         return action, info
 
-    def reset(self, gt_graph, seed):
+    def reset(self, gt_graph):
         self.last_action = None
         self.last_subgoal = None
         self.failed_action = False
@@ -555,7 +550,7 @@ class MCTS_agent:
         self.belief = belief.Belief(
             gt_graph,
             agent_id=self.agent_id,
-            seed=seed,
+            seed=self.seed,
             belief_params=self.belief_params,
         )
         self.sim_env.reset(gt_graph)
@@ -569,7 +564,7 @@ class MCTS_agent:
             self.max_rollout_steps,
             self.c_init,
             self.c_base,
-            seed=seed,
+            seed=self.seed,
             agent_params=self.agent_params,
             add_bp=add_bp,
         )

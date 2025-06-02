@@ -62,8 +62,7 @@ ROOM_LIST = GEN_META[ENV_ID][TASK_NAME]["ROOM_LIST"]
 OBJ_SET = {o for obj_names in OBJ_LIST for o in obj_names}
 
 
-def argmax_dict_items(d):
-    return max(d.items(), key=lambda x: x[1])
+
 
 
 def post_init_args(args):

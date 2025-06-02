@@ -1,8 +1,7 @@
 import pickle
 from pathlib import Path
 
-from rich.progress import track
-
+from agents.AutoToM_agent import AutoToM_agent
 from agents.MCTS_agent import MCTS_agent
 from arguments import get_args
 from envs.arena_mp2 import ArenaMP
@@ -24,7 +23,7 @@ class Runner:
 
         self.args.record_dir.mkdir(parents=True, exist_ok=True)
         self.saver = utils_logging.Saver(
-            name=self.args.logger_name,
+            logger_name=self.args.logger_name,
             record_dir=self.args.record_dir,
             save_img=dict(
                 camera_views=self.args.save_camera_views,
@@ -85,7 +84,27 @@ class Runner:
 
             args_agents.append(args_agent)
 
-        self.agents = [MCTS_agent(**args_agent) for args_agent in args_agents]
+        match self.args.helper_class.lower():
+            case "autotom":
+                agent_classes = [MCTS_agent, AutoToM_agent]
+                args_agents[1]["autotom_args"] = dict(
+                    conf_thres=dict(
+                        grab=self.args.autotom_thres_grab,
+                        put=self.args.autotom_thres_put,
+                    ),
+                    filter_thres=self.args.autotom_thres_filter,
+                    num_particles=self.args.autotom_num_particles,
+                    llm_name=self.args.autotom_llm_name,
+                    method=self.args.autotom_method,
+                    start_at_put=self.args.autotom_start_at_put,
+                )
+            case _:
+                agent_classes = [MCTS_agent, MCTS_agent]
+
+        self.agents = [
+            agent_class(**args_agent)
+            for agent_class, args_agent in zip(agent_classes, args_agents)
+        ]
 
     def _get_env(self):
         self.env = UnityEnvironment(
@@ -110,22 +129,29 @@ class Runner:
         if self.args.debug_len is not None:
             self.args.episode_ids = self.args.episode_ids[: self.args.debug_len]
 
-        for ith_try in range(self.args.num_tries):
-            self.saver.reset_run(ith_try)
+        episode_ids = self.args.episode_ids
 
-            for episode_id in track(self.args.episode_ids):
-                self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
-                if self.saver.episode_path.exists():
-                    continue
+        with self.saver.pbar as pbar:
+            pbar_run = pbar.add_task("run", total=self.args.num_runs)
 
-                for ith_agent, agent in enumerate(self.arena.agents):
-                    agent.seed = (ith_agent + ith_try * 2) * 5
+            for ith_run in range(self.args.num_runs):
+                pbar.update(pbar_run, advance=1)
+                pbar_episode = pbar.add_task("episode", total=len(episode_ids))
+                self.saver.reset_run(ith_run)
 
-                self.arena.reset(episode_id, helper_use_gt_goal=False)
-                self.arena.run()
-                self.saver.save_episode()
+                for episode_id in episode_ids:
+                    pbar.update(pbar_episode, advance=1)
 
-            self.saver.save_run()
+                    self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
+                    if self.saver.episode_path.exists():
+                        continue
+
+                    self.arena.reset(episode_id, ith_run, helper_use_gt_goal=False)
+                    self.arena.run()
+                    self.saver.save_episode()
+
+                self.saver.save_run()
+                pbar.remove_task(pbar_episode)
 
 
 if __name__ == "__main__":

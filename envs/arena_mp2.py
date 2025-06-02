@@ -9,17 +9,23 @@ class ArenaMP(object):
         self.saver = saver
         atexit.register(self.env.close)
 
-    def reset(self, task_id=None, helper_use_gt_goal=None):
+    def reset(self, task_id, ith_run, helper_use_gt_goal):
         ob = None
         while ob is None:
             ob = self.env.reset(task_id=task_id, helper_use_gt_goal=helper_use_gt_goal)
 
         for it, agent in enumerate(self.agents):
+            agent.seed = (it + ith_run * 2) * 5
+            agent.saver = self.saver
             match agent.agent_type:
                 case "MCTS":
-                    agent.reset(self.env.full_graph, seed=agent.seed)
+                    agent.reset(self.env.full_graph)
                 case "AutoToM":
-                    raise NotImplementedError("AutoToM is not implemented")
+                    agent.reset(
+                        self.env.full_graph,
+                        human_goal=self.env.task_goal[0],
+                        human_init_room=self.env.init_rooms[0],
+                    )
         return ob
 
     def get_actions(self, obs):
@@ -27,22 +33,17 @@ class ArenaMP(object):
         agents_info = dict()
 
         for it, agent in enumerate(self.agents):
-            goal_spec = self.env.get_goal2(
-                self.env.task_goal[it],
-                self.env.agent_goals[it],
-            )
-
             match agent.agent_type:
                 case "MCTS":
                     actions[it], agents_info[it] = agent.get_action(
-                        obs[it],
-                        goal_spec,
-                        opponent_subgoal=None,
-                        length_plan=5,
-                        must_replan=False,
+                        obs=obs[it],
+                        # * `self.env.goal_spec` has additional 'final' 'reward' keys
+                        # * than `self.env.task_goal`
+                        goal_spec=self.env.goal_spec[it],
                     )
                 case "AutoToM":
-                    raise NotImplementedError("AutoToM is not implemented")
+                    # * AutoToM_agent will collect info from `saver`
+                    actions[it], agents_info[it] = agent.get_action()
 
         return actions, agents_info
 
@@ -85,7 +86,12 @@ class ArenaMP(object):
         }
 
         self.save_camera_img(self.env.steps)
+
+        pbar = self.saver.pbar
+        pbar_step = pbar.add_task("step", total=self.env.max_episode_length)
+
         while True:
+            pbar.update(pbar_step, advance=1)
             (obs, reward, done, infos), actions, agents_info = self.step()
             self.save_camera_img(self.env.steps)
 
@@ -101,3 +107,5 @@ class ArenaMP(object):
 
         self.saver.episode_saved_info["success"] = infos["finished"]
         self.saver.episode_saved_info["steps"] = self.env.steps
+
+        pbar.remove_task(pbar_step)

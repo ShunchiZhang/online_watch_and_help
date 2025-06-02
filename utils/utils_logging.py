@@ -6,6 +6,16 @@ from pathlib import Path
 
 import cv2
 from rich.logging import RichHandler
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from virtualhome.simulation.environment.unity_environment import (
     UnityEnvironment as BaseUnityEnvironment,
 )
@@ -82,14 +92,9 @@ def get_my_logger(
 
 
 class Saver:
-    def __init__(self, name, record_dir, save_img, save_belief):
+    def __init__(self, logger_name, record_dir, save_img, save_belief):
         self.record_dir = record_dir
-        self.log_filename = record_dir / f"{name}.log"
-        self.logger = get_my_logger(name=name, file_name=self.log_filename)
-        self._inherit_logging()
-
-        self.info(f"cwd: {Path.cwd()}")
-        self.info(f"logging to '{self.log_filename}'")
+        self._init_logging(logger_name)
 
         self.img_w = save_img["image_width"]
         self.img_h = save_img["image_height"]
@@ -116,7 +121,10 @@ class Saver:
             except Exception:
                 pass
 
-    def _inherit_logging(self):
+    def _init_logging(self, name):
+        log_filename = self.record_dir / f"{name}.log"
+        self.logger = get_my_logger(name=name, file_name=log_filename)
+
         self.debug = self.logger.debug
         self.info = self.logger.info
         self.warning = self.logger.warning
@@ -124,6 +132,20 @@ class Saver:
         self.critical = self.logger.critical
         self.log = self.logger.log
         self.exception = self.logger.exception
+
+        self.info(f"cwd: {Path.cwd()}")
+        self.info(f"logging to '{log_filename}'")
+
+        self.pbar = Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            MofNCompleteColumn(),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            "<",
+            TimeRemainingColumn(),
+        )
 
     def reset_run(self, run_id):
         self.run_id = run_id
@@ -145,9 +167,17 @@ class Saver:
                 self.record_episode(saved_info)
         else:
             self.info(f">>>>> start: {self.current_episode} >>>>>")
-            self.info(f"apt_id:    {env_task['env_id']:02d}")
-            self.info(f"task_name: {env_task['task_name']}")
-            self.info(f"goal:      {env_task['task_goal'][0]}")
+            # ! prevent circular import
+            from utils.utils_graph import EG, Goal
+
+            env_id = env_task["env_id"]
+            task_name = env_task["task_name"]
+            goal = Goal(
+                env_task["task_goal"][0],
+                EG(env_task["init_graph"]),
+            )
+
+            self.info(f"[{task_name}] (apt_id={env_id})\n{goal}")
 
     def save_episode(self):
         saved_info = self.episode_saved_info

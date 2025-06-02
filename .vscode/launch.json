@@ -20,10 +20,12 @@
         "--executable_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
         "--dataset_path=./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik",
         "--debug",
-        "--num_agents=1",
-        "--base_port=8090",
+        "--num_agents=2",
+        "--base_port=8082",
         "--image_width=160",
         "--image_height=120",
+        "--autotom_method=llm",
+        "--autotom_start_at_put",
       ]
     },
     {
