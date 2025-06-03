@@ -88,10 +88,8 @@ class Runner:
             case "autotom":
                 agent_classes = [MCTS_agent, AutoToM_agent]
                 args_agents[1]["autotom_args"] = dict(
-                    conf_thres=dict(
-                        grab=self.args.autotom_thres_grab,
-                        put=self.args.autotom_thres_put,
-                    ),
+                    grab_thres=self.args.autotom_thres_grab,
+                    put_thres=self.args.autotom_thres_put,
                     filter_thres=self.args.autotom_thres_filter,
                     num_particles=self.args.autotom_num_particles,
                     llm_name=self.args.autotom_llm_name,

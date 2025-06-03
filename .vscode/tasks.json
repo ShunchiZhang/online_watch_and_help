@@ -1,0 +1,23 @@
+{
+  // See https://go.microsoft.com/fwlink/?LinkId=733558
+  // for the documentation about the tasks.json format
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "shell",
+      "label": "clear :8088",
+      "command": "lsof -i :8088 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear main.log",
+      "command": "echo '' > logs/train_env_task_set_2_full_task.all_apts.0,1,2,4,5/main.log"
+    },
+    {
+      "type": "shell",
+      "label": "clear all",
+      "dependsOn": ["clear :8088", "clear main.log"],
+      "dependsOrder": "parallel"
+    }
+  ]
+}

@@ -709,7 +709,7 @@ class Belief:
             if x["relation_type"] == "INSIDE":
                 if x["from_id"] in inside.keys():
                     print(
-                        "Already inside",
+                        f"[warning] Already {x['relation_type']}:",
                         id2node[x["from_id"]]["class_name"],
                         id2node[inside[x["from_id"]]]["class_name"],
                         id2node[x["to_id"]]["class_name"],
@@ -849,7 +849,7 @@ class Belief:
             if x["relation_type"] == "INSIDE":
                 if x["from_id"] in inside.keys():
                     print(
-                        "Already inside",
+                        f"[warning] Already {x['relation_type']}:",
                         id2node[x["from_id"]]["class_name"],
                         id2node[inside[x["from_id"]]]["class_name"],
                         id2node[x["to_id"]]["class_name"],
@@ -864,7 +864,7 @@ class Belief:
                     and x["to_id"] in self.surface_ids
                 ):
                     print(
-                        "Already on",
+                        f"[warning] Already {x['relation_type']}:",
                         id2node[x["from_id"]]["class_name"],
                         id2node[on[x["from_id"]]]["class_name"],
                         id2node[x["to_id"]]["class_name"],

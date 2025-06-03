@@ -9,6 +9,25 @@ class ArenaMP(object):
         self.saver = saver
         atexit.register(self.env.close)
 
+    def reset_saver(self):
+        self.saver.episode_saved_info = {
+            "task_id": self.env.task_id,
+            "env_id": self.env.env_id,
+            "task_name": self.env.task_name,
+            "gt_goals": self.env.task_goal[0],
+            "goals": self.env.task_goal,
+            "init_rooms": {i: self.env.init_rooms[i] for i in range(len(self.agents))},
+            "init_unity_graph": self.env.init_graph,
+            "goals_finished": [],
+            "obs": {i: [] for i in range(len(self.agents))},
+            "graph": [self.env.init_unity_graph],
+            "action": {i: [] for i in range(len(self.agents))},
+            "plan": {i: [] for i in range(len(self.agents))},
+            "belief": {i: [] for i in range(len(self.agents))},
+            "belief_room": {i: [] for i in range(len(self.agents))},
+            "belief_graph": {i: [] for i in range(len(self.agents))},
+        }
+
     def reset(self, task_id, ith_run, helper_use_gt_goal):
         ob = None
         while ob is None:
@@ -21,11 +40,14 @@ class ArenaMP(object):
                 case "MCTS":
                     agent.reset(self.env.full_graph)
                 case "AutoToM":
-                    agent.reset(
-                        self.env.full_graph,
-                        human_goal=self.env.task_goal[0],
-                        human_init_room=self.env.init_rooms[0],
+                    agent.reset(self.env.full_graph)
+                    agent.task_meta = dict(
+                        env_id=self.env.env_id,
+                        task_name=self.env.task_name,
                     )
+
+        self.reset_saver()
+
         return ob
 
     def get_actions(self, obs):
@@ -43,7 +65,7 @@ class ArenaMP(object):
                     )
                 case "AutoToM":
                     # * AutoToM_agent will collect info from `saver`
-                    actions[it], agents_info[it] = agent.get_action()
+                    actions[it], agents_info[it] = agent.get_action(obs=obs[it])
 
         return actions, agents_info
 
@@ -68,22 +90,6 @@ class ArenaMP(object):
                 self.saver.save_camera_img(obs, agent_id, view, step)
 
     def run(self):
-        self.saver.episode_saved_info = {
-            "task_id": self.env.task_id,
-            "env_id": self.env.env_id,
-            "task_name": self.env.task_name,
-            "gt_goals": self.env.task_goal[0],
-            "goals": self.env.task_goal,
-            "init_unity_graph": self.env.init_graph,
-            "goals_finished": [],
-            "obs": {i: [] for i in range(len(self.agents))},
-            "graph": [self.env.init_unity_graph],
-            "action": {i: [] for i in range(len(self.agents))},
-            "plan": {i: [] for i in range(len(self.agents))},
-            "belief": {i: [] for i in range(len(self.agents))},
-            "belief_room": {i: [] for i in range(len(self.agents))},
-            "belief_graph": {i: [] for i in range(len(self.agents))},
-        }
 
         self.save_camera_img(self.env.steps)
 

@@ -1,38 +1,148 @@
+import time
+from collections import Counter
+from functools import partial
+
+from json_repair import repair_json
+from openai import OpenAI
+from pydantic import BaseModel, Field
+
+from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
+
+
+class Object(BaseModel):
+    type: str = Field(..., choices=OBJECT_NAMES)
+    count: int = Field(..., ge=1)
+
+    @staticmethod
+    def to_counter(objects):
+        counter = Counter()
+        for obj in objects:
+            counter[obj.type] += obj.count
+        return counter
+
+    @staticmethod
+    def from_counter(counter):
+        objects = []
+        for obj_type, count in counter.items():
+            objects.append(Object(type=obj_type, count=count))
+        return objects
+
+
+class Target(BaseModel):
+    type: str = Field(..., choices=TARGET_NAMES)
+    # preposition: str = Field(..., choices=["on", "inside"]) # * reduce planning space
+
+
+class GoalParticle(BaseModel):
+    task_name: str = Field(..., choices=TASK_NAMES)
+    objects: list[Object] = Field(..., min_items=1)
+    target: Target
+    p: float = Field(..., ge=0, le=1, description="Probability of the goal proposal")
+
+    def minus_objects(self, done_counter):
+        left_counter = Object.to_counter(self.objects) - done_counter
+        self.objects = Object.from_counter(left_counter)
+
+
+class GoalParticles(BaseModel):
+    particles: list[GoalParticle]
+
+    def normalize(self):
+        partition = sum(particle.p for particle in self.particles)
+        for particle in self.particles:
+            particle.p /= partition
+
+    def filter_low_conf(self, thres):
+        self.particles = list(
+            filter(lambda particle: particle.p >= thres, self.particles)
+        )
+        return self
+
+    def minus_objects(self, done_counter):
+        for particle in self.particles:
+            particle.minus_objects(done_counter)
+
+
+class Likelihood(BaseModel):
+    likelihood: float = Field(..., ge=0, le=1)
+
+
 question = """\
-## Task Description
+In the story below, human is searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
 
-Human wants to set up a table.
-Human wants to choose exactly 2 types of objects and exactly 2 of each type, then put them on the same target location.
-The possible objects are: ["wineglass", "waterglass", "cutleryfork", "plate"]
-The possible target locations are: ["kitchentable", "coffeetable"]
+Your are a helpful assistant. In order to help human finishing the task, please predict human's *overall* goal.
 
-Your are a helpful assistant. In order to help human finish the task, please predict human's overall goals (i.e., 2 types of objects and 2 of each type, and a target location).
-
-## Question
-
-What is Human's overall goal (i.e., 2 types of objects and 2 of each type, and a target location)?\
+IMPORTANT INSTRUCTIONS:
+- *overall* means you should **include both** completed subgoals and possible future subgoals.
+- You should not stick on the completed subgoals, or *too obvious* future subgoals (if human currently grabs an object, predicting it as a future goal is *too obvious*), because your task is to **help** instead of accurate prediction. You can only achieve substantial helping by predicting something that human has not grabbed yet. However, while you focus on novel predictions, don't forget to include the completed subgoals.
+- There is only a single **consistent** target location, i.e., human will put all objects to the same location. The object types and counts may vary though.
 """
 
-propose_1 = """\
-In the story below, human is searching for an object or objects and plans to place them somewhere. It could be setting up table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
-Please predict human's overall goal (including both completed subgoals and possible future subgoals).
-Provide the most possible overall goal hypothesis (in the format that can be directly parsed as JSON) without any explanations.
-
-Story: {story}
-Example response format: {{"objects": {{"plate": 1, "wineglass": 1}}, "target": "kitchentable"}}
-Proposed overall goal hypothesis:\
-"""
-
-propose_n = """\
-## Output Format Requirements
-Instead of simply giving one hypothesis of human's overall goals, please provide a probability distribution over n={n} overall goal hypotheses.
-Your response should be able to directly parsed as JSON, WITHOUT any explanations.
-The JSON list should be sorted by the probability in descending order.
-An example (n=3): [{{"objects": ["waterglass", "wineglass"], "target": "kitchentable", "p": 0.40}}, {{"objects": ["plate", "wineglass"], "target": "coffeetable", "p": 0.30}}, {{"objects": ["plate", "cutleryfork"], "target": "coffeetable", "p": 0.30}}]
-
-## Specific Problem
-Story:
+propose = """\
+## Story
 {story}
 
-Please propose a probability distribution over n={n} overall goal hypotheses:\
+## Output Format Requirements
+Instead of simply giving one hypothesis of human's overall goal, please provide a probability distribution over n={n} overall goal hypotheses.
+Your response should include a JSON that follows the schema: {schema}
 """
+propose = partial(propose.format, schema=GoalParticles.model_json_schema())
+
+
+forward_likelihood = """\
+Based on the current environment state and the person's overall goal, what is the likelihood that the person would take the action described above?
+
+Some hints: An action is highly likely if it directly contributes to the overall goal, e.g., walking toward a goal object, grabbing a goal object, or putting it to the intended location.
+
+If the action involves grabbing an object not mentioned in the goal, or placing an object somewhere other than the target location specified in the goal, the likelihood should be 0.
+
+Current environment state:
+{story}
+
+Person's overall goal: {choice}
+
+Action: {action}
+
+Your response should include a JSON that follows the schema: {schema}.
+"""
+forward_likelihood = partial(
+    forward_likelihood.format, schema=Likelihood.model_json_schema()
+)
+
+
+LLM_PRICING = {
+    "gpt-4o": dict(input=2.50e-6, output=10.00e-6),
+    "o3-mini": dict(input=1.10e-6, output=4.40e-6),
+}
+
+
+def call_gpt(prompt, llm_name):
+    client = OpenAI()
+    match llm_name:
+        case "gpt-4o":
+            kwargs = dict(temperature=0)
+        case "o3-mini":
+            kwargs = dict(reasoning_effort="high")
+        case _:
+            raise ValueError(f"Invalid llm_name: {llm_name}")
+
+    t1 = time.time()
+    resp = client.chat.completions.create(
+        model=llm_name,
+        messages=[dict(role="user", content=prompt)],
+        **kwargs,
+    )
+    t2 = time.time()
+
+    obj = repair_json(resp.choices[0].message.content, return_objects=True)
+    cost = dict(
+        time=t2 - t1,
+        dollar=sum(
+            [
+                resp.usage.prompt_tokens * LLM_PRICING[llm_name]["input"],
+                resp.usage.completion_tokens * LLM_PRICING[llm_name]["output"],
+            ]
+        ),
+    )
+
+    return obj, cost

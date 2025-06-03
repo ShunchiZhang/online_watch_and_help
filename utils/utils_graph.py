@@ -15,6 +15,76 @@ from virtualhome.simulation.evolving_graph.environment import (
 from utils import utils_environment as utils_env
 from utils.utils_logging import format_row, get_my_logger
 
+TASK_TO_OBJECT_NAMES = dict(
+    prepare_food=["apple", "cupcake", "pudding", "salmon"],
+    put_dishwasher=["cutleryfork", "plate", "waterglass", "wineglass"],
+    put_fridge=["apple", "cupcake", "pudding", "salmon"],
+    setup_table=["cutleryfork", "plate", "waterglass", "wineglass"],
+    watch_tv=["chips", "condimentbottle", "remotecontrol"],
+)
+
+TASK_NAMES = sorted(list(TASK_TO_OBJECT_NAMES.keys()))
+OBJECT_NAMES = sorted(
+    list(set([obj for objs in TASK_TO_OBJECT_NAMES.values() for obj in objs]))
+)
+
+ENV_ID_TO_TARGET_NAME_TO_PREP = {
+    0: dict(
+        fridge=("inside", 306),
+        coffeetable=("on", 372),
+        kitchentable=("on", 231),
+    ),
+    1: dict(
+        dishwasher=("inside", 152),
+        fridge=("inside", 149),
+        stove=("inside", 150),
+        kitchentable=("on", 123),
+    ),
+    2: dict(
+        dishwasher=("inside", 166),
+        fridge=("inside", 163),
+        stove=("inside", 164),
+        coffeetable=("on", 215),
+        kitchentable=("on", 136),
+    ),
+    3: dict(),
+    4: dict(
+        dishwasher=("inside", 154),
+        fridge=("inside", 155),
+        stove=("inside", 152),
+        kitchentable=("on", 136),
+    ),
+    5: dict(
+        fridge=("inside", 247),
+        stove=("inside", 242),
+        coffeetable=("on", 111),
+        kitchentable=("on", 194),
+    ),
+}
+
+TARGET_NAMES = sorted(
+    list(set([y for x in ENV_ID_TO_TARGET_NAME_TO_PREP.values() for y in x.keys()]))
+)
+
+
+def item(it):
+    assert len(it) == 1
+    if isinstance(it, list) or isinstance(it, tuple):
+        return it[0]
+    if (
+        isinstance(it, set)
+        or isinstance(it, type({}.keys()))
+        or isinstance(it, type({}.values()))
+        or isinstance(it, type({}.items()))
+    ):
+        return next(iter(it))
+    if isinstance(it, dict):
+        return list(it.items())[0]
+    elif isinstance(it, Counter):
+        return it.most_common(1)[0]
+    else:
+        raise ValueError(f"unsupported type: {type(it)}")
+
 
 def fix_graph(env_task_set):
     for env in env_task_set:
@@ -36,6 +106,7 @@ def fix_graph(env_task_set):
             if node["class_name"] == "cutleryfork":
                 node["obj_transform"]["position"][1] += 0.1
     return env_task_set
+
 
 def parse_string(s):
     # Define a regular expression pattern to match the parts of the string
@@ -372,6 +443,8 @@ class EG(EnvironmentGraph):
             match predicate:
                 case "walk":
                     line = f"{name} walks to the {parsed[1]}"
+                case "walktowards":
+                    line = f"{name} walks towards the {parsed[1]}"
                 case "putback":
                     prep = "on"
                     line = f"{name} puts the {parsed[1]} {prep} the {parsed[3]}"
@@ -386,7 +459,7 @@ class EG(EnvironmentGraph):
         # return "\n".join([f"[{i}] {line}" for i, line in enumerate(lines)])
         return lines
 
-    def story(self, ctnr_ids, srfc_ids):
+    def story(self, ctnr_ids, srfc_ids, task_name, env_id):
         """
         >>>
         code for restricting the story to TGT_LIST and OBJ_SET
@@ -429,9 +502,10 @@ class EG(EnvironmentGraph):
 
             objs = Counter([n.class_name for n in getattr(mid, predicate)()])
             objs = [f"{cnt} {obj}" for obj, cnt in objs.items() if obj]
-            # & >>>>>
-            objs = [o for o in objs if o.split(" ")[-1] in OBJ_SET]
-            # & <<<<<
+            # * only describe objects of interest
+            objs = [
+                o for o in objs if o.split(" ")[-1] in TASK_TO_OBJECT_NAMES[task_name]
+            ]
             if len(objs) > 0:
                 objs_str = ", ".join(objs)
                 objs_str = f"The {mid_name} {predicate} {objs_str}."
@@ -463,7 +537,7 @@ class EG(EnvironmentGraph):
 
         return story
 
-    def agent_state_natlang(self, agent_id=1, name="Human"):
+    def agent_state_natlang(self, agent_id, name):
         agent = self[agent_id]
         close_objs = agent.close()
         in_hands = agent.holds()
