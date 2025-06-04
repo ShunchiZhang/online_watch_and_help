@@ -1,11 +1,13 @@
+import copy
 from collections import Counter
 
 from rich.pretty import pretty_repr
 
+from agents import AutoToM_prompts as prompts
 from agents.AutoToM import AutoToM
 from agents.MCTS_agent import MCTS_agent
 from utils import utils_environment as utils_env
-from utils.utils_graph import EG, ENV_ID_TO_TARGET_NAME_TO_PREP, item, parse_string
+from utils.utils_graph import ENV_ID_TO_TARGET_NAME_TO_PREP, item, parse_action
 
 
 class AutoToM_agent(MCTS_agent):
@@ -20,10 +22,14 @@ class AutoToM_agent(MCTS_agent):
 
         self.agent_type = "AutoToM"
 
-    def reset(self, *args, **kwargs):
-        super().reset(*args, **kwargs)
-        self.autotom.saver = self.saver
+    def reset(self, gt_graph):
+        super().reset(gt_graph)
+
         self.curr_goal = None
+        self.particles = prompts.GoalParticles(particles=[])
+
+        self.autotom.saver = self.saver
+        self.autotom.reset(gt_graph, self.belief)
 
     @property
     def curr_verb(self):
@@ -40,7 +46,7 @@ class AutoToM_agent(MCTS_agent):
         for action in actions:
             if action is None:
                 continue
-            parsed = parse_string(action)
+            parsed = parse_action(action)
             match parsed[0]:
                 case "grab":
                     obj = parsed[1]
@@ -67,7 +73,23 @@ class AutoToM_agent(MCTS_agent):
         human_done, human_grab, human_touched = self.check_progress(human_actions)
         helper_done, helper_grab, helper_touched = self.check_progress(helper_actions)
 
-        if not self.start_at_put or len(human_done) > 0:
+        start_autotom = False
+        if self.start_at_put and len(human_done) > 0:
+            start_autotom = True
+        elif not self.start_at_put and len(human_actions) > 0:
+            start_autotom = True
+
+        if start_autotom:
+            # ^ 1. maintain particles for every step
+            keep_particles = (
+                len(human_actions) >= 2 and human_actions[-1] == human_actions[-2]
+            )
+            if not keep_particles:
+                self.particles = self.autotom.step(
+                    curr_gt_graph, human_actions, self.particles
+                )
+
+            # ^ 2. decide to replan or not
             should_replan = dict(
                 grab=(
                     (sum(helper_grab.values()) == 0)
@@ -81,17 +103,14 @@ class AutoToM_agent(MCTS_agent):
                 ),
             )
             if any(should_replan.values()):
-                # ^ 1. get particles
-                state, actions = self.prepare_autotom(curr_gt_graph, human_actions)
-                particles = self.autotom.step(state, actions)
-                self.saver.debug(f"[overall]\n{pretty_repr(particles)}")
-
-                # ^ 2. minus done and ongoing particles
+                # ^ 3. minus done and ongoing particles
+                particles = copy.deepcopy(self.particles)
                 particles.minus_objects(human_done + human_grab)
                 particles.minus_objects(helper_done + helper_grab)
-                self.saver.debug(f"[remain]\n{pretty_repr(particles)}")
+                if not keep_particles:
+                    self.saver.debug(f"[remain]\n{pretty_repr(particles.to_natlang())}")
 
-                # ^ 3. update self.curr_goal
+                # ^ 4. update self.curr_goal
                 self.update_curr_goal(particles, helper_grab, should_replan)
 
         if self.curr_goal is None:
@@ -146,35 +165,8 @@ class AutoToM_agent(MCTS_agent):
             if len(probs) == 0 or probs.most_common(1)[0][1] < self.put_thres:
                 self.curr_goal = None
             else:
-                env_id = self.task_meta["env_id"]
+                env_id = self.saver.episode_saved_info["env_id"]
                 put = probs.most_common(1)[0][0]
                 verb, put_id = ENV_ID_TO_TARGET_NAME_TO_PREP[env_id][put]
                 grab, _ = item(helper_grab)
                 self.curr_goal = {f"{verb}_{grab}_{put_id}": 1}
-
-    def prepare_autotom(self, curr_gt_graph, human_actions):
-        """
-        prepare `state` and `actions`
-        """
-        eg = EG(curr_gt_graph)
-
-        # ^ 1. prepare `state`
-        if not hasattr(self.autotom, "story"):
-            story_belief = list(self.belief.edge_belief.values())
-            story_ctnr_ids = story_belief[0]["INSIDE"][0][1:]
-            story_srfc_ids = story_belief[0]["ON"][0][1:]
-
-            story = eg.story(
-                story_ctnr_ids,
-                story_srfc_ids,
-                self.task_meta["task_name"],
-                self.task_meta["env_id"],
-            )
-            self.autotom.story = story
-        # * state: human close to ..., holds ...
-        state = eg.agent_state_natlang(agent_id=1, name="Human")
-
-        # ^ 2. prepare `actions`
-        human_init_room = self.saver.episode_saved_info["init_rooms"][0]
-        actions = eg.actions_to_natlang(human_actions, human_init_room)
-        return state, actions

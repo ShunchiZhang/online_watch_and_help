@@ -1,5 +1,7 @@
 import atexit
 
+from utils.utils_graph import EG
+
 
 # @ray.remote
 class ArenaMP(object):
@@ -32,6 +34,7 @@ class ArenaMP(object):
         ob = None
         while ob is None:
             ob = self.env.reset(task_id=task_id, helper_use_gt_goal=helper_use_gt_goal)
+        self.reset_saver()
 
         for it, agent in enumerate(self.agents):
             agent.seed = (it + ith_run * 2) * 5
@@ -41,12 +44,6 @@ class ArenaMP(object):
                     agent.reset(self.env.full_graph)
                 case "AutoToM":
                     agent.reset(self.env.full_graph)
-                    agent.task_meta = dict(
-                        env_id=self.env.env_id,
-                        task_name=self.env.task_name,
-                    )
-
-        self.reset_saver()
 
         return ob
 
@@ -90,7 +87,6 @@ class ArenaMP(object):
                 self.saver.save_camera_img(obs, agent_id, view, step)
 
     def run(self):
-
         self.save_camera_img(self.env.steps)
 
         pbar = self.saver.pbar
@@ -101,9 +97,11 @@ class ArenaMP(object):
             (obs, reward, done, infos), actions, agents_info = self.step()
             self.save_camera_img(self.env.steps)
 
+            eg = EG(self.env.get_graph())
             for ith_agent in range(len(self.agents)):
                 plan = agents_info[ith_agent]["plan"]
-                self.saver.info(f"[{self.env.steps}] agent {ith_agent}: {plan}")
+                in_hand = eg[ith_agent + 1].holds()
+                self.saver.info(f"[{self.env.steps}]agent{ith_agent}/{in_hand}/{plan}")
             self.saver.flush()
 
             self.saver.record_step(infos, actions, agents_info)

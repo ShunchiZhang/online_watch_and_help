@@ -19,7 +19,23 @@ class Runner:
         self.arena = ArenaMP(self.env, self.agents, self.saver)
 
     def _get_saver(self):
-        self.args.record_dir = Path(self.args.record_dir) / self.args.dataset_path.stem
+        if self.args.num_agents == 1:
+            method = "single"
+        elif self.args.autotom_method == "autotom":
+            method = "autotom"
+        elif self.args.autotom_method == "llm":
+            if self.args.autotom_llm_name == "gpt-4o":
+                method = "gpt-4o"
+            elif self.args.autotom_llm_name == "o3-mini":
+                method = "o3-mini"
+            else:
+                raise ValueError(f"Invalid LLM name: {self.args.autotom_llm_name}")
+        else:
+            raise ValueError(f"Invalid config: {self.args.autotom_method}")
+
+        self.args.record_dir = (
+            Path(self.args.record_dir) / self.args.dataset_path.stem / method
+        )
 
         self.args.record_dir.mkdir(parents=True, exist_ok=True)
         self.saver = utils_logging.Saver(
@@ -127,7 +143,7 @@ class Runner:
         if self.args.debug_len is not None:
             self.args.episode_ids = self.args.episode_ids[: self.args.debug_len]
 
-        episode_ids = self.args.episode_ids
+        episode_ids = [self.args.episode_ids[5]]
 
         with self.saver.pbar as pbar:
             pbar_run = pbar.add_task("run", total=self.args.num_runs)

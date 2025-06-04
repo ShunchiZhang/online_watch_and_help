@@ -160,6 +160,7 @@ class Saver:
         self.episode_dir = self.run_dir / f"episode_{episode_id:02d}"
         self.episode_path = self.episode_dir / "result.json"
         self.episode_graph_path = self.episode_dir / "graph.pik"
+        self.episode_eval_path = self.episode_dir / "eval.json"
 
         if self.episode_path.exists():
             with self.episode_path.open("r") as f:
@@ -179,6 +180,24 @@ class Saver:
 
             self.info(f"[{task_name}] (apt_id={env_id})\n{goal}")
 
+    def eval_episode(self):
+        from utils.utils_graph import parse_action
+
+        saved_info = self.episode_saved_info
+
+        saved_info["gt_goals"]
+        human_actions = saved_info["action"]["0"]
+        helper_actions = saved_info["action"]["1"]
+        for a in helper_actions:
+            parse_action(a)
+
+        saved_info["total_grab"] = 0
+        saved_info["total_put"] = 0
+        saved_info["valid_grab"] = 0
+        saved_info["valid_put"] = 0
+
+        self.episode_saved_info = saved_info
+
     def save_episode(self):
         saved_info = self.episode_saved_info
         graph_keys = {
@@ -189,12 +208,27 @@ class Saver:
             "graph",
             "obs",
         }
+        eval_keys = {
+            "success",
+            "steps",
+            "total_grab",
+            "total_put",
+            "valid_grab",
+            "valid_put",
+        }
 
         graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
         with self.episode_graph_path.open("wb") as f:
             pickle.dump(graph_data, f)
 
-        other_data = {k: v for k, v in saved_info.items() if k not in graph_keys}
+        eval_data = {k: saved_info[k] for k in eval_keys if k in saved_info}
+        with self.episode_eval_path.open("w") as f:
+            json.dump(eval_data, f, ensure_ascii=False)
+        prettier(self.episode_eval_path)
+
+        other_data = {
+            k: v for k, v in saved_info.items() if k not in (graph_keys | eval_keys)
+        }
         with self.episode_path.open("w") as f:
             json.dump(other_data, f, ensure_ascii=False)
         prettier(self.episode_path)

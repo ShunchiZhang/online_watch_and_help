@@ -43,6 +43,11 @@ class GoalParticle(BaseModel):
         left_counter = Object.to_counter(self.objects) - done_counter
         self.objects = Object.from_counter(left_counter)
 
+    def to_natlang(self):
+        counter = Object.to_counter(self.objects)
+        objects = [f"{cnt} {name}" for name, cnt in counter.items()]
+        return f"({self.task_name}) put {', '.join(objects)} to {self.target.type}"
+
 
 class GoalParticles(BaseModel):
     particles: list[GoalParticle]
@@ -52,16 +57,38 @@ class GoalParticles(BaseModel):
         for particle in self.particles:
             particle.p /= partition
 
+    def reweight(self, probs):
+        for particle, p in zip(self.particles, probs):
+            particle.p *= p
+        self.normalize()
+
     def filter_low_conf(self, thres):
         self.particles = list(
             filter(lambda particle: particle.p >= thres, self.particles)
         )
-        return self
+        self.normalize()
+
+    def fill_particles(self, particles, max_particles):
+        for particle in particles.particles:
+            if particle.to_natlang() not in self.to_natlang().keys():
+                self.particles.append(particle)
+
+                if len(self.particles) == max_particles:
+                    self.normalize()
+                    break
+
+    def to_natlang(self):
+        contents = dict()
+        for particle in self.particles:
+            contents[particle.to_natlang()] = round(100 * particle.p, 1)
+        return contents
 
     def minus_objects(self, done_counter):
         for particle in self.particles:
             particle.minus_objects(done_counter)
 
+    def __len__(self):
+        return len(self.particles)
 
 class Likelihood(BaseModel):
     likelihood: float = Field(..., ge=0, le=1)
@@ -82,6 +109,8 @@ propose = """\
 ## Story
 {story}
 
+{action}
+
 ## Output Format Requirements
 Instead of simply giving one hypothesis of human's overall goal, please provide a probability distribution over n={n} overall goal hypotheses.
 Your response should include a JSON that follows the schema: {schema}
@@ -90,7 +119,7 @@ propose = partial(propose.format, schema=GoalParticles.model_json_schema())
 
 
 forward_likelihood = """\
-Based on the current environment state and the person's overall goal, what is the likelihood that the person would take the action described above?
+Based on the current environment state and human's overall goal, what is the likelihood that human would take the action described below?
 
 Some hints: An action is highly likely if it directly contributes to the overall goal, e.g., walking toward a goal object, grabbing a goal object, or putting it to the intended location.
 
@@ -99,9 +128,11 @@ If the action involves grabbing an object not mentioned in the goal, or placing 
 Current environment state:
 {story}
 
-Person's overall goal: {choice}
+{state}
 
-Action: {action}
+Human's overall goal: {particle}
+
+What is the likelihood of: '{action}' given the current environment state and human's overall goal?
 
 Your response should include a JSON that follows the schema: {schema}.
 """

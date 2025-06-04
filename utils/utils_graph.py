@@ -108,7 +108,7 @@ def fix_graph(env_task_set):
     return env_task_set
 
 
-def parse_string(s):
+def parse_action(s):
     # Define a regular expression pattern to match the parts of the string
     pattern = r"\[(.*?)\] <(.*?)> \((\d+)\) <(.*?)> \((\d+)\)"
     match = re.match(pattern, s)
@@ -131,6 +131,16 @@ def parse_string(s):
             device = match.group(2)
             number = match.group(3)
             return [action, device, number]
+
+
+def dedup_actions(actions):
+    if len(actions) == 0:
+        return actions
+    result = [actions[0]]
+    for action in actions[1:]:
+        if action != result[-1]:
+            result.append(action)
+    return result
 
 
 class GN(GraphNode):
@@ -434,11 +444,12 @@ class EG(EnvironmentGraph):
         return ret
 
     def actions_to_natlang(self, actions, init_room, name="Human"):
+        actions = dedup_actions(actions)
         lines = [f"{name} is in the {init_room}"]
         for action in actions:
             if action is None:
                 continue
-            parsed = parse_string(action)
+            parsed = parse_action(action)
             predicate = parsed[0]
             match predicate:
                 case "walk":
@@ -451,90 +462,68 @@ class EG(EnvironmentGraph):
                 case "putin":
                     prep = "in"
                     line = f"{name} puts the {parsed[1]} {prep} the {parsed[3]}"
-                case "open" | "grab":
-                    line = f"{name} {predicate}s the {parsed[1]}"
+                case "grab":
+                    line = f"{name} grabs the {parsed[1]}"
+                case "open":
+                    line = f"{name} opens the {parsed[1]}"
+                    # note = self.describe_related_objects(
+                    #     self[int(parsed[2])], "contains"
+                    # )
+                    # line += f" ({note})"
                 case _:
                     raise ValueError(parsed)
             lines.append(line)
         # return "\n".join([f"[{i}] {line}" for i, line in enumerate(lines)])
         return lines
 
-    def story(self, ctnr_ids, srfc_ids, task_name, env_id):
-        """
-        >>>
-        code for restricting the story to TGT_LIST and OBJ_SET
-        <<<
-        """
+    def describe_related_objects(self, node, predicate):
+        """given a container or surface, describe the objects inside or on it"""
+
+        name = node.class_name
+        objs = Counter([n.class_name for n in getattr(node, predicate)()])
+        objs = [f"{cnt} {obj}" for obj, cnt in objs.items() if obj in OBJECT_NAMES]
+        if len(objs) > 0:
+            return f"the {name} {predicate} {', '.join(objs)}"
+        else:
+            return f"the {name} {predicate} nothing"
+
+    def story(self, ctnr_ids, srfc_ids):
         tree = dict()  # room => ctnr|srfc => obj
 
         rooms = self.get_rooms()
         for room in rooms:
             tree[room.class_name] = []
 
-        ctnr_set = set(ctnr_ids)
-        srfc_set = set(srfc_ids)
-
-        # & >>>>>
-        # ctnr_set = set()
-        # srfc_set = set()
-        # for predicate, tgt_id in TGT_LIST:
-        #     match predicate:
-        #         case "on":
-        #             srfc_set.add(tgt_id)
-        #         case "inside":
-        #             ctnr_set.add(tgt_id)
-        #         case _:
-        #             raise ValueError(predicate)
-        # & <<<<<
-
-        for mid_id in ctnr_set | srfc_set:
-            if mid_id in ctnr_set:
+        for mid_id in ctnr_ids | srfc_ids:
+            if mid_id in ctnr_ids:
                 predicate = "contains"
-            elif mid_id in srfc_set:
+            elif mid_id in srfc_ids:
                 predicate = "supports"
             else:
                 raise ValueError(mid_id)
 
             mid = self[mid_id]
-            mid_name = mid.class_name
             room = mid.get_room()
-            room_name = room.class_name
+            objs_str = self.describe_related_objects(mid, predicate)
+            tree[room.class_name].append([mid.class_name, objs_str])
 
-            objs = Counter([n.class_name for n in getattr(mid, predicate)()])
-            objs = [f"{cnt} {obj}" for obj, cnt in objs.items() if obj]
-            # * only describe objects of interest
-            objs = [
-                o for o in objs if o.split(" ")[-1] in TASK_TO_OBJECT_NAMES[task_name]
-            ]
-            if len(objs) > 0:
-                objs_str = ", ".join(objs)
-                objs_str = f"The {mid_name} {predicate} {objs_str}."
-            else:
-                objs_str = ""
-
-            tree[room_name].append([mid_name, objs_str])
-
-        room_strs = []
+        room_list = [r.class_name for r in rooms]
+        story = f"The apartment has {len(rooms)} rooms: {', '.join(room_list)}."
         for room_name, room_info in tree.items():
             room_info = sorted(room_info)
+            # * skip empty rooms
+            if len(room_info) == 0:
+                continue
+            story += "\n\n"
+            # * describe counter(ctnr|srfc)
             mid_names = Counter([mid_name for mid_name, _ in room_info])
             mid_names = [f"{cnt} {mid_name}" for mid_name, cnt in mid_names.items()]
-            mid_names = ", ".join(mid_names)
-            room_str = [f"The {room_name} has {mid_names}. Specifically,"]
-            room_str.extend(
-                [f"- {mid_str}" for _, mid_str in room_info if mid_str != ""]
-            )
-            if len(room_str) >= 2:
-                room_str = "\n".join(room_str)
-                room_strs.append(room_str)
-        room_strs = "\n\n".join(room_strs)
-
-        story = "The apartment has {} rooms: {}.\n\n{}".format(
-            len(rooms),
-            ", ".join([r.class_name for r in rooms]),
-            room_strs,
-        )
-
+            story += f"\nThe {room_name} has {', '.join(mid_names)}."
+            # * describe each ctnr|srfc
+            for _, objs_str in room_info:
+                if "nothing" in objs_str:
+                    continue
+                story += f"\n- {objs_str.capitalize()}."
         return story
 
     def agent_state_natlang(self, agent_id, name):

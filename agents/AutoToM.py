@@ -1,8 +1,10 @@
 import traceback
 
 from pydantic import ValidationError
+from rich.pretty import pretty_repr
 
 from agents import AutoToM_prompts as prompts
+from utils.utils_graph import EG
 
 
 class AutoToM:
@@ -23,12 +25,44 @@ class AutoToM:
         self.filter_thres = filter_thres
         self.num_particles = num_particles
         self.method = method
-        self.particles = []
 
-    def step(self, state, actions):
+    def reset(self, gt_graph, belief):
+        """
+        prepare
+        - init_story (for self.new_particles())
+        - curr_story (for self.forward_likelihood())
+        """
+        story_belief = list(belief.edge_belief.values())[0]
+        self.story_ctnr_ids = set(story_belief["INSIDE"][0][1:])
+        self.story_srfc_ids = set(story_belief["ON"][0][1:])
+        self.init_story = EG(gt_graph).story(self.story_ctnr_ids, self.story_srfc_ids)
+
+        self.human_init_room = self.saver.episode_saved_info["init_rooms"][0]
+
+    def prepare(self, curr_gt_graph, human_actions):
+        eg = EG(curr_gt_graph)
+
+        # * curr_story
+        curr_story = eg.story(
+            self.story_ctnr_ids,
+            self.story_srfc_ids,
+        )
+
+        # * curr_state: human close to ..., holds ...
+        curr_state = eg.agent_state_natlang(agent_id=1, name="Human")
+
+        # * actions
+        actions = eg.actions_to_natlang(human_actions, self.human_init_room)
+
+        return curr_story, curr_state, actions
+
+    def step(self, curr_gt_graph, human_actions, particles):
+        curr_story, curr_state, actions = self.prepare(curr_gt_graph, human_actions)
         match self.method:
             case "autotom":
-                particles = self.particle_filter(state, actions)
+                particles = self.particle_filter(
+                    curr_story, curr_state, actions, particles
+                )
             case "llm":
                 particles = self.new_particles(actions, n=self.num_particles)
             case _:
@@ -37,89 +71,91 @@ class AutoToM:
 
     def new_particles(self, actions, n):
         # ! IMPORTANT: maintain overall goal as particles, instead of future goals.
-        story = "\n\n".join([self.story, "\n".join(actions)])
         while True:
             try:
                 resp, cost = prompts.call_gpt(
                     prompt="\n\n".join(
                         [
                             prompts.question,
-                            prompts.propose(story=story, n=n),
+                            prompts.propose(
+                                story=self.init_story,
+                                action="\n".join(actions),
+                                n=n,
+                            ),
                         ]
                     ),
                     llm_name=self.llm_name,
                 )
-                hypos = prompts.GoalParticles.model_validate(resp)
-                hypos.normalize()
-                assert len(hypos.particles) == n
                 self.saver.debug(f"[new_particles] {cost}")
-                return hypos
+
+                particles = prompts.GoalParticles.model_validate(resp)
+
+                assert len(particles) == n
+                break
+
             except (AssertionError, ValidationError) as e:
                 self.saver.error(f"{e}: {resp}")
+            except Exception as e:
+                self.saver.error(f"{e}: {resp}")
+                traceback.print_exc()
 
-    def particle_filter(self, state, actions):
+        particles.normalize()
+        return particles
+
+    def particle_filter(self, curr_story, curr_state, actions, particles):
         # ^ 1. fill
-        assert len(actions) != 0
-        if len(self.particles) == 0:
-            particles = self.new_particles(actions, n=self.num_particles)
-        else:
-            # * filter
-            particles = {
-                h: p for h, p in self.particles.items() if p >= self.filter_thres
-            }
-            # * propose
-            if len(particles) < self.num_particles:
-                new_hypos = self.new_particles(actions, n=self.num_particles)
-                for new_hypo, p in new_hypos.items():
-                    if new_hypo not in particles:
-                        particles[new_hypo] = p
-                    if len(particles) == self.num_particles:
-                        break
+        if len(particles) < self.num_particles:
+            new_particles = self.new_particles(actions, n=self.num_particles)
+            particles.fill_particles(new_particles, self.num_particles)
+
         # ^ 2. reweight and normalize
         while True:
             try:
-                probs = self.forward_likelihood(state, actions[-1])
-                l_probs, l_choices = len(probs), len(particles)
-                assert l_probs == l_choices, f"{l_probs = } | {l_choices = }"
-                # * normalize
-                partition = sum(probs)
-                if partition == 0:
-                    probs = [1 / l_choices for _ in probs]
-                else:
-                    probs = [p / partition for p in probs]
+                probs = self.forward_likelihood(
+                    curr_story, curr_state, actions[-1], particles
+                )
                 break
             except Exception as e:
                 self.saver.error(f"[forward_likelihood] {e}")
                 traceback.print_exc()
-        self.saver.debug(f"{particles.keys()}")
-        self.saver.debug(f"curr_p = {probs}")
-        self.saver.debug(f"prev_p = {particles.values()}")
-        partition = sum(p * p_old for p, p_old in zip(probs, particles.values()))
-        particles = {
-            h: p * p_old / partition for p, (h, p_old) in zip(probs, particles.items())
-        }
-        self.saver.debug(f"combined_p = {particles.values()}")
-        particles = {
-            h: p
-            for i, (h, p) in enumerate(particles.items())
-            # * remove the whole particle if current prob[i] is low
-            if probs[i] >= self.filter_thres
-        }
-        self.saver.debug(f"filtered_p = {particles.values()}")
-        partition = sum(particles.values())
-        particles = {h: p / partition for h, p in particles.items()}
+        self.saver.debug(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
+        particles.reweight(probs)
+        self.saver.debug(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
+        particles.filter_low_conf(self.filter_thres)
+        self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         return particles
 
-    def forward_likelihood(self, state, action, particles):
-        choices = list(particles.keys())
+    def forward_likelihood(self, curr_story, curr_state, curr_action, particles):
         probs = []
-
-        story = "\n\n".join([self.story, state])
-
-        for choice in choices:
-            prompt2 = prompts.forward_likelihood(story, choice, action)
-            resp, cost = prompts.call_gpt(prompt2, self.llm_name)
+        # & >>>>> only for debug >>>>>
+        saved_prompts = []
+        saved_choices = []
+        # & <<<<< only for debug <<<<<
+        for particle in particles.particles:
+            prompt = prompts.forward_likelihood(
+                story=curr_story,
+                state=curr_state,
+                action=curr_action,
+                particle=particle.to_natlang(),
+            )
+            resp, cost = prompts.call_gpt(prompt, self.llm_name)
             self.saver.debug(f"[forward_likelihood] {cost}")
+
             likelihood = prompts.Likelihood.model_validate(resp)
             probs.append(likelihood.likelihood)
+
+            # & >>>>> only for debug >>>>>
+            saved_prompts.append(prompt)
+            saved_choices.append(particle.to_natlang())
+
+        self.saver.debug(f"[forward] {curr_action}")
+        self.saver.debug(f"[forward]\n{pretty_repr(dict(zip(saved_choices, probs)))}")
+        # & <<<<< only for debug <<<<<
+
+        partition = sum(probs)
+        if partition == 0:
+            probs = [1 / len(probs) for _ in probs]
+        else:
+            probs = [p / partition for p in probs]
+
         return probs
