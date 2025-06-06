@@ -75,7 +75,8 @@ class Runner:
                 ),
             ),
         )
-        args_agents = []
+
+        self.agents = []
 
         for i in range(self.args.num_agents):
             args_agent = dict(agent_id=i + 1, char_index=i, **args_agent_common)
@@ -93,27 +94,23 @@ class Runner:
                 args_agent["num_particles"] = num_particles
                 args_agent["num_processes"] = num_particles
 
-            args_agents.append(args_agent)
-
-        match self.args.helper_class.lower():
-            case "autotom":
-                agent_classes = [MCTS_agent, AutoToM_agent]
-                args_agents[1]["autotom_args"] = dict(
-                    grab_thres=self.args.autotom_thres_grab,
-                    put_thres=self.args.autotom_thres_put,
-                    filter_thres=self.args.autotom_thres_filter,
-                    num_particles=self.args.autotom_num_particles,
-                    llm_name=self.args.autotom_llm_name,
-                    method=self.args.autotom_method,
-                    start_at_put=self.args.autotom_start_at_put,
-                )
-            case _:
-                agent_classes = [MCTS_agent, MCTS_agent]
-
-        self.agents = [
-            agent_class(**args_agent)
-            for agent_class, args_agent in zip(agent_classes, args_agents)
-        ]
+            if i == 0 or self.args.helper_class == "MCTS":
+                self.agents.append(MCTS_agent(**args_agent))
+            else:
+                match self.args.helper_class.lower():
+                    case "autotom":
+                        args_agent["autotom_args"] = dict(
+                            grab_thres=self.args.autotom_thres_grab,
+                            put_thres=self.args.autotom_thres_put,
+                            filter_thres=self.args.autotom_thres_filter,
+                            num_particles=self.args.autotom_num_particles,
+                            llm_name=self.args.autotom_llm_name,
+                            method=self.args.autotom_method,
+                            start_at_put=self.args.autotom_start_at_put,
+                        )
+                        self.agents.append(AutoToM_agent(**args_agent))
+                    case _:
+                        raise ValueError(f"Invalid config: {self.args.helper_class}")
 
     def _get_env(self):
         self.env = UnityEnvironment(
@@ -138,7 +135,7 @@ class Runner:
         if self.args.debug_len is not None:
             self.args.episode_ids = self.args.episode_ids[: self.args.debug_len]
 
-        episode_ids = [self.args.episode_ids[5]]
+        episode_ids = self.args.episode_ids
 
         with self.saver.pbar as pbar:
             pbar_run = pbar.add_task("run", total=self.args.num_runs)

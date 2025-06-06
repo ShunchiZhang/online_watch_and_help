@@ -24,7 +24,7 @@ def add_autotom_args(parser):
     parser.add_argument(
         "--autotom_thres_filter",
         type=float,
-        default=0.10,
+        default=0.20,
         help="The threshold for the particle filter in AutoToM",
     )
     parser.add_argument(
@@ -85,13 +85,13 @@ def get_args():
     parser.add_argument(
         "--image_width",
         type=int,
-        default=640,
+        default=160,  # 640,
         help="The width of the image to save",
     )
     parser.add_argument(
         "--image_height",
         type=int,
-        default=480,
+        default=120,  # 480,
         help="The height of the image to save",
     )
     parser.add_argument(
