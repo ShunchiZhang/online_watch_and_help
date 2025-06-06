@@ -119,6 +119,9 @@ def fix_graph(env_task_set):
 
 
 def parse_action(s):
+    if s is None:
+        return [None]
+
     # Define a regular expression pattern to match the parts of the string
     pattern = r"\[(.*?)\] <(.*?)> \((\d+)\) <(.*?)> \((\d+)\)"
     match = re.match(pattern, s)

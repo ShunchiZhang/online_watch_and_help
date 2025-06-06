@@ -164,8 +164,13 @@ class Saver:
 
         if self.episode_path.exists():
             with self.episode_path.open("r") as f:
-                saved_info = json.load(f)
-                self.record_episode(saved_info)
+                other_data = json.load(f)
+            with self.episode_graph_path.open("rb") as f:
+                graph_data = pickle.load(f)
+            with self.episode_eval_path.open("r") as f:
+                eval_data = json.load(f)
+            self.episode_saved_info = {**other_data, **graph_data, **eval_data}
+
         else:
             self.info(f">>>>> start: {self.current_episode} >>>>>")
             # ! prevent circular import
@@ -180,24 +185,6 @@ class Saver:
 
             self.info(f"[{task_name}] (apt_id={env_id})\n{goal}")
 
-    def eval_episode(self):
-        from utils.utils_graph import parse_action
-
-        saved_info = self.episode_saved_info
-
-        saved_info["gt_goals"]
-        human_actions = saved_info["action"]["0"]
-        helper_actions = saved_info["action"]["1"]
-        for a in helper_actions:
-            parse_action(a)
-
-        saved_info["total_grab"] = 0
-        saved_info["total_put"] = 0
-        saved_info["valid_grab"] = 0
-        saved_info["valid_put"] = 0
-
-        self.episode_saved_info = saved_info
-
     def save_episode(self):
         saved_info = self.episode_saved_info
         graph_keys = {
@@ -211,16 +198,24 @@ class Saver:
         eval_keys = {
             "success",
             "steps",
-            "total_grab",
-            "total_put",
-            "valid_grab",
-            "valid_put",
+            "num_goals",
+            "helper_total_grab",
+            "helper_total_put",
+            "helper_correct_grab",
+            "helper_correct_put",
+            "helper_valid_help",
+            "helper_valid_step",
+            "llm_time",
+            "llm_dollar",
+            "llm_input_tokens",
+            "llm_output_tokens",
         }
 
         graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
         with self.episode_graph_path.open("wb") as f:
             pickle.dump(graph_data, f)
 
+        self.save_episode_eval()
         eval_data = {k: saved_info[k] for k in eval_keys if k in saved_info}
         with self.episode_eval_path.open("w") as f:
             json.dump(eval_data, f, ensure_ascii=False)
@@ -233,13 +228,65 @@ class Saver:
             json.dump(other_data, f, ensure_ascii=False)
         prettier(self.episode_path)
 
-        self.record_episode(saved_info)
+    def save_episode_eval(self):
+        from utils.utils_graph import item, parse_action
 
-    def record_episode(self, saved_info):
-        success = saved_info["success"]
-        steps = saved_info["steps"]
-        self.run_result[self.episode_id] = (success, steps)
-        self.info(f"[{self.current_episode}] success: {success}, steps: {steps}")
+        metrics = dict()
+        action_seq = []
+        metrics["helper_total_grab"] = 0
+        metrics["helper_total_put"] = 0
+        metrics["helper_correct_grab"] = 0
+        metrics["helper_correct_put"] = 0
+        metrics["helper_valid_help"] = 0
+        metrics["helper_valid_step"] = self.episode_saved_info["steps"]
+
+        gt_goals = self.episode_saved_info["gt_goals"]
+        gt_grab = {k.split("_")[1] for k in gt_goals}
+        gt_put = item({k.split("_")[2] for k in gt_goals})
+        metrics["num_goals"] = sum([spec["count"] for spec in gt_goals.values()])
+
+        human_actions = self.episode_saved_info["action"]["0"]
+        helper_actions = self.episode_saved_info["action"]["1"]
+
+        for t, (a_h, a_r) in enumerate(zip(human_actions, helper_actions)):
+            parsed_h = parse_action(a_h)
+            match parsed_h[0]:
+                case "grab":
+                    action_seq.append(f"[{t:2d}] human {a_h}")
+                case "putin" | "putback":
+                    action_seq.append(f"[{t:2d}] human {a_h}")
+
+            parsed_r = parse_action(a_r)
+            match parsed_r[0]:
+                case "grab":
+                    action_seq.append(f"[{t:2d}] helper {a_r}")
+
+                    metrics["helper_total_grab"] += 1
+                    if parsed_r[1] in gt_grab:
+                        metrics["helper_correct_grab"] += 1
+                case "putin" | "putback":
+                    action_seq.append(f"[{t:2d}] helper {a_r}")
+                    metrics["helper_total_put"] += 1
+                    if parsed_r[4] == gt_put:
+                        metrics["helper_correct_put"] += 1
+                        if parsed_r[1] in gt_grab:
+                            metrics["helper_valid_help"] += 1
+                case None:
+                    metrics["helper_valid_step"] -= 1
+
+        self.episode_saved_info["action_seq"] = action_seq
+
+        self.episode_saved_info.update(metrics)
+        self.run_result[self.episode_id] = dict(
+            metrics,
+            success=self.episode_saved_info["success"],
+            steps=self.episode_saved_info["steps"],
+            llm_time=self.episode_saved_info.get("llm_time", 0),
+            llm_dollar=self.episode_saved_info.get("llm_dollar", 0),
+            llm_input_tokens=self.episode_saved_info.get("llm_input_tokens", 0),
+            llm_output_tokens=self.episode_saved_info.get("llm_output_tokens", 0),
+        )
+        self.info(f"[{self.current_episode}] {metrics}")
 
     def record_step(self, infos, actions, agent_info):
         saved_info = self.episode_saved_info
@@ -266,29 +313,55 @@ class Saver:
         self.episode_saved_info = saved_info
         return saved_info
 
+    def record_cost(self, cost, name):
+        if name is not None:
+            self.saver.debug(f"[{name}] {cost}")
+        self.episode_saved_info["llm_time"] += cost["time"]
+        self.episode_saved_info["llm_dollar"] += cost["dollar"]
+        self.episode_saved_info["llm_input_tokens"] += cost["input_tokens"]
+        self.episode_saved_info["llm_output_tokens"] += cost["output_tokens"]
+
     def save_run(self):
         failure_list = []
         steps_list = []
-        for episode_id, (success, steps) in self.run_result.items():
-            if success:
-                steps_list.append(steps)
+        num_goals = 0
+        valid_help = 0
+        llm_stats = dict(time=0, dollar=0, input_tokens=0, output_tokens=0)
+        for episode_id, metrics in self.run_result.items():
+            llm_stats["time"] += metrics["llm_time"] / 3600
+            llm_stats["dollar"] += metrics["llm_dollar"]
+            llm_stats["input_tokens"] += metrics["llm_input_tokens"]
+            llm_stats["output_tokens"] += metrics["llm_output_tokens"]
+            if metrics["success"]:
+                steps_list.append(metrics["steps"])
+                num_goals += metrics["num_goals"]
+                valid_help += metrics["helper_valid_help"]
             else:
                 failure_list.append(episode_id)
 
         avg_steps = sum(steps_list) / len(steps_list)
+        valid_help_rate = valid_help / num_goals
         num_failures = len(failure_list)
         total_episodes = len(self.run_result)
         self.info(f">>>>> summary: run_{self.run_id} >>>>>")
         self.info(f"avg_steps: {avg_steps:.1f}")
+        self.info(f"total_valid_help: {valid_help}/{num_goals} ({valid_help_rate:.2f})")
         self.info(f"failures: {failure_list} ({num_failures}/{total_episodes})")
+        self.info(f"llm_stats: {llm_stats}")
         self.info(f"<<<<< summary: run_{self.run_id} <<<<<")
 
+        detail_keys = ["success", "steps", "num_goals", "helper_valid_help"]
         with self.run_path.open("w") as f:
             json.dump(
                 dict(
-                    details=self.run_result,
                     avg_steps=avg_steps,
                     failures=failure_list,
+                    llm=llm_stats,
+                    details_keys=detail_keys,
+                    details={
+                        episode_id: [result[k] for k in detail_keys]
+                        for episode_id, result in self.run_result.items()
+                    },
                 ),
                 f,
                 ensure_ascii=False,

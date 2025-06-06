@@ -182,6 +182,8 @@ def call_gpt(prompt, llm_name):
                 resp.usage.completion_tokens * LLM_PRICING[llm_name]["output"],
             ]
         ),
+        input_tokens=resp.usage.prompt_tokens,
+        output_tokens=resp.usage.completion_tokens,
     )
 
     return obj, cost

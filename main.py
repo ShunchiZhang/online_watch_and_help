@@ -149,11 +149,11 @@ class Runner:
                     pbar.update(pbar_episode, advance=1)
 
                     self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
-                    if self.saver.episode_path.exists():
-                        continue
 
-                    self.arena.reset(episode_id, ith_run, helper_use_gt_goal=False)
-                    self.arena.run()
+                    if not self.saver.episode_path.exists():
+                        self.arena.reset(episode_id, ith_run, helper_use_gt_goal=False)
+                        self.arena.run()
+
                     self.saver.save_episode()
 
                 self.saver.save_run()

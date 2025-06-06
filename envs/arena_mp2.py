@@ -28,6 +28,10 @@ class ArenaMP(object):
             "belief": {i: [] for i in range(len(self.agents))},
             "belief_room": {i: [] for i in range(len(self.agents))},
             "belief_graph": {i: [] for i in range(len(self.agents))},
+            "llm_time": 0,
+            "llm_dollar": 0,
+            "llm_input_tokens": 0,
+            "llm_output_tokens": 0,
         }
 
     def reset(self, task_id, ith_run, helper_use_gt_goal):
