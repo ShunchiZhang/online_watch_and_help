@@ -127,16 +127,16 @@ class AutoToM:
 
     def forward_likelihood(self, curr_story, curr_state, curr_action, particles):
         probs = []
+        choices = [particle.to_natlang() for particle in particles.particles]
         # & >>>>> only for debug >>>>>
-        saved_prompts = []
         saved_choices = []
         # & <<<<< only for debug <<<<<
-        for particle in particles.particles:
+        for choice in choices:
             prompt = prompts.forward_likelihood(
                 story=curr_story,
                 state=curr_state,
                 action=curr_action,
-                particle=particle.to_natlang(),
+                particle=choice,
             )
             resp, cost = prompts.call_gpt(prompt, self.llm_name)
             self.saver.debug(f"[forward_likelihood] {cost}")
@@ -144,11 +144,14 @@ class AutoToM:
             likelihood = prompts.Likelihood.model_validate(resp)
             probs.append(likelihood.likelihood)
 
-            # & >>>>> only for debug >>>>>
-            saved_prompts.append(prompt)
-            saved_choices.append(particle.to_natlang())
-
-        self.saver.debug(f"[forward] {curr_action}")
+        # & >>>>> only for debug >>>>>
+        log_prompt = prompts.forward_likelihood(
+            story=curr_story,
+            state=curr_state,
+            action=curr_action,
+            particle="[debug]",
+        )
+        self.saver.debug(f"[forward]\n{log_prompt}")
         self.saver.debug(f"[forward]\n{pretty_repr(dict(zip(saved_choices, probs)))}")
         # & <<<<< only for debug <<<<<
 

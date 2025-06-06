@@ -26,8 +26,9 @@
         "--image_height=120",
         // "--autotom_method=llm",
         "--autotom_method=autotom",
+        // "--autotom_llm_name=gpt-4o-mini",
         // "--autotom_start_at_put",
-        "--autotom_num_particles=5",
+        // "--autotom_num_particles=3",
         "--autotom_thres_filter=0.2"
       ],
       "preLaunchTask": "clear :8088"

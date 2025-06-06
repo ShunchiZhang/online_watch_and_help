@@ -28,43 +28,53 @@ OBJECT_NAMES = sorted(
     list(set([obj for objs in TASK_TO_OBJECT_NAMES.values() for obj in objs]))
 )
 
-ENV_ID_TO_TARGET_NAME_TO_PREP = {
+TARGET_NAME_TO_PREP = dict(
+    coffeetable="on",
+    dishwasher="inside",
+    fridge="inside",
+    kitchentable="on",
+    stove="inside",
+)
+TARGET_NAMES = sorted(list(TARGET_NAME_TO_PREP.keys()))
+
+ENV_ID_TO_TARGET_NAME_TO_ID = {
     0: dict(
-        fridge=("inside", 306),
-        coffeetable=("on", 372),
-        kitchentable=("on", 231),
+        coffeetable=372,
+        dishwasher=None,  # ! wrong target
+        fridge=306,
+        kitchentable=231,
+        stove=312,  # ! wrong target
     ),
     1: dict(
-        dishwasher=("inside", 152),
-        fridge=("inside", 149),
-        stove=("inside", 150),
-        kitchentable=("on", 123),
+        coffeetable=[221, 290][0],  # ! wrong target
+        dishwasher=152,
+        fridge=149,
+        kitchentable=123,
+        stove=150,
     ),
     2: dict(
-        dishwasher=("inside", 166),
-        fridge=("inside", 163),
-        stove=("inside", 164),
-        coffeetable=("on", 215),
-        kitchentable=("on", 136),
+        coffeetable=215,
+        dishwasher=166,
+        fridge=163,
+        kitchentable=136,
+        stove=164,
     ),
     3: dict(),
     4: dict(
-        dishwasher=("inside", 154),
-        fridge=("inside", 155),
-        stove=("inside", 152),
-        kitchentable=("on", 136),
+        coffeetable=None,  # ! wrong target
+        dishwasher=154,
+        fridge=155,
+        kitchentable=136,
+        stove=152,
     ),
     5: dict(
-        fridge=("inside", 247),
-        stove=("inside", 242),
-        coffeetable=("on", 111),
-        kitchentable=("on", 194),
+        coffeetable=111,
+        dishwasher=None,  # ! wrong target
+        fridge=247,
+        kitchentable=194,
+        stove=242,
     ),
 }
-
-TARGET_NAMES = sorted(
-    list(set([y for x in ENV_ID_TO_TARGET_NAME_TO_PREP.values() for y in x.keys()]))
-)
 
 
 def item(it):
@@ -514,7 +524,7 @@ class EG(EnvironmentGraph):
             # * skip empty rooms
             if len(room_info) == 0:
                 continue
-            story += "\n\n"
+            story += "\n"
             # * describe counter(ctnr|srfc)
             mid_names = Counter([mid_name for mid_name, _ in room_info])
             mid_names = [f"{cnt} {mid_name}" for mid_name, cnt in mid_names.items()]

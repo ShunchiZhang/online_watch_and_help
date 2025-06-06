@@ -37,7 +37,7 @@ def add_autotom_args(parser):
         "--autotom_llm_name",
         type=str,
         default="gpt-4o",
-        choices=["gpt-4o", "o3-mini"],
+        choices=["gpt-4o", "o3-mini", "gpt-4o-mini"],
         help="The name of the LLM to use in AutoToM",
     )
     parser.add_argument(

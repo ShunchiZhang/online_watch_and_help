@@ -24,12 +24,7 @@ class Runner:
         elif self.args.autotom_method == "autotom":
             method = "autotom"
         elif self.args.autotom_method == "llm":
-            if self.args.autotom_llm_name == "gpt-4o":
-                method = "gpt-4o"
-            elif self.args.autotom_llm_name == "o3-mini":
-                method = "o3-mini"
-            else:
-                raise ValueError(f"Invalid LLM name: {self.args.autotom_llm_name}")
+            method = self.args.autotom_llm_name
         else:
             raise ValueError(f"Invalid config: {self.args.autotom_method}")
 

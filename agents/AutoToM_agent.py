@@ -7,7 +7,12 @@ from agents import AutoToM_prompts as prompts
 from agents.AutoToM import AutoToM
 from agents.MCTS_agent import MCTS_agent
 from utils import utils_environment as utils_env
-from utils.utils_graph import ENV_ID_TO_TARGET_NAME_TO_PREP, item, parse_action
+from utils.utils_graph import (
+    ENV_ID_TO_TARGET_NAME_TO_ID,
+    TARGET_NAME_TO_PREP,
+    item,
+    parse_action,
+)
 
 
 class AutoToM_agent(MCTS_agent):
@@ -26,7 +31,7 @@ class AutoToM_agent(MCTS_agent):
         super().reset(gt_graph)
 
         self.curr_goal = None
-        self.particles = prompts.GoalParticles(particles=[])
+        self.goal_particles = prompts.GoalParticles(particles=[])
 
         self.autotom.saver = self.saver
         self.autotom.reset(gt_graph, self.belief)
@@ -85,8 +90,8 @@ class AutoToM_agent(MCTS_agent):
                 len(human_actions) >= 2 and human_actions[-1] == human_actions[-2]
             )
             if not keep_particles:
-                self.particles = self.autotom.step(
-                    curr_gt_graph, human_actions, self.particles
+                self.goal_particles = self.autotom.step(
+                    curr_gt_graph, human_actions, self.goal_particles
                 )
 
             # ^ 2. decide to replan or not
@@ -104,7 +109,7 @@ class AutoToM_agent(MCTS_agent):
             )
             if any(should_replan.values()):
                 # ^ 3. minus done and ongoing particles
-                particles = copy.deepcopy(self.particles)
+                particles = copy.deepcopy(self.goal_particles)
                 particles.minus_objects(human_done + human_grab)
                 particles.minus_objects(helper_done + helper_grab)
                 if not keep_particles:
@@ -167,6 +172,12 @@ class AutoToM_agent(MCTS_agent):
             else:
                 env_id = self.saver.episode_saved_info["env_id"]
                 put = probs.most_common(1)[0][0]
-                verb, put_id = ENV_ID_TO_TARGET_NAME_TO_PREP[env_id][put]
+                put_id = ENV_ID_TO_TARGET_NAME_TO_ID[env_id][put]
+                verb = TARGET_NAME_TO_PREP[put]
                 grab, _ = item(helper_grab)
                 self.curr_goal = {f"{verb}_{grab}_{put_id}": 1}
+
+                if put_id is None:
+                    env_id = self.saver.episode_saved_info["env_id"]
+                    self.saver.error(f"{put} doesn't exist in apt {env_id}")
+                    self.curr_goal = None

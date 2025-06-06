@@ -90,8 +90,11 @@ class GoalParticles(BaseModel):
     def __len__(self):
         return len(self.particles)
 
+
 class Likelihood(BaseModel):
-    likelihood: float = Field(..., ge=0, le=1)
+    likelihood: float = Field(
+        ..., ge=0, le=1, description="likelihood in float number between 0 and 1."
+    )
 
 
 question = """\
@@ -125,14 +128,18 @@ Some hints: An action is highly likely if it directly contributes to the overall
 
 If the action involves grabbing an object not mentioned in the goal, or placing an object somewhere other than the target location specified in the goal, the likelihood should be 0.
 
-Current environment state:
+## Current Environment State
 {story}
 
 {state}
 
-Human's overall goal: {particle}
+## Human's overall goal
+{particle}
 
-What is the likelihood of: '{action}' given the current environment state and human's overall goal?
+## Action
+{action}
+
+What is the likelihood of the action given the current environment state and human's overall goal, i.e., p(action | state, goal)?
 
 Your response should include a JSON that follows the schema: {schema}.
 """
@@ -142,20 +149,21 @@ forward_likelihood = partial(
 
 
 LLM_PRICING = {
+    # https://platform.openai.com/docs/pricing
     "gpt-4o": dict(input=2.50e-6, output=10.00e-6),
+    "gpt-4o-mini": dict(input=0.15e-6, output=0.60e-6),
     "o3-mini": dict(input=1.10e-6, output=4.40e-6),
 }
 
 
 def call_gpt(prompt, llm_name):
     client = OpenAI()
-    match llm_name:
-        case "gpt-4o":
-            kwargs = dict(temperature=0)
-        case "o3-mini":
-            kwargs = dict(reasoning_effort="high")
-        case _:
-            raise ValueError(f"Invalid llm_name: {llm_name}")
+    if llm_name.startswith("gpt"):
+        kwargs = dict(temperature=0)
+    elif llm_name.startswith("o"):
+        kwargs = dict(reasoning_effort="high")
+    else:
+        raise ValueError(f"Invalid llm_name: {llm_name}")
 
     t1 = time.time()
     resp = client.chat.completions.create(
