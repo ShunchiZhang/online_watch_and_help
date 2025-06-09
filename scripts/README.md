@@ -3,14 +3,20 @@
 ```sh
 cd online_watch_and_help
 
-# logs/train_env_task_set_2_full_task.all_apts.0,1,2,4,5/single/main.log
-bash scripts/main.sh 8088 1 null
+# single
+bash scripts/main.sh 8088 1 MCTS "--num_runs=5"
 
-# logs/train_env_task_set_2_full_task.all_apts.0,1,2,4,5/llm/main.log
-bash scripts/main.sh 8089 2 llm
+# random_goal
+bash scripts/main.sh 8089 2 MCTS "--helper_goal_type=random --num_runs=5"
 
-# logs/train_env_task_set_2_full_task.all_apts.0,1,2,4,5/autotom/main.log
-bash scripts/main.sh 8090 2 autotom
+# oracle_goal
+bash scripts/main.sh 8090 2 MCTS "--helper_goal_type=gt --num_runs=5"
+
+# llm
+bash scripts/main.sh 8091 2 AutoToM "--autotom_method=llm --autotom_llm_name=gpt-4o"
+
+# autotom
+bash scripts/main.sh 8092 2 AutoToM "--autotom_method=autotom --autotom_llm_name=gpt-4o"
 ```
 
 # Inspect Logs

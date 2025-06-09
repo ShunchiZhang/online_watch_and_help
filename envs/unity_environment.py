@@ -1,5 +1,6 @@
 import copy
 import math
+import traceback
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -256,7 +257,27 @@ class UnityEnvironment(BaseUnityEnvironment):
         if helper_goal_type == "gt":
             self.task_goal[1] = self.task_goal[0]
         elif helper_goal_type == "random":
-            self.task_goal[1] = get_random_goal(env_task["env_id"], seed)
+            from utils.utils_graph import EG
+
+            while True:
+                try:
+                    goal = get_random_goal(env_task["env_id"], seed)
+
+                    # * check if object exists
+                    goal_spec = utils_env2.convert_goal(goal, self.init_graph)
+
+                    # * check if no multiple locations for the same object
+                    eg = EG(env_task["init_graph"])
+                    for subgoal_name, subgoal in goal_spec.items():
+                        for obj_id in subgoal["grab_obj_ids"]:
+                            obj = eg[obj_id]
+                            room, ctnr, srfc = obj.get_location()
+
+                    break
+                except Exception:
+                    traceback.print_exc()
+                    seed += 100
+            self.task_goal[1] = goal
         elif helper_goal_type == "unknown":
             self.task_goal[1] = dict()
         else:

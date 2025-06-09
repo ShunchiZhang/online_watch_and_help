@@ -256,7 +256,14 @@ class Saver:
 
         for t, executed in enumerate(self.episode_saved_info["executed"]):
             _, executed, _, _ = executed
-            a_h, a_r = executed.values()
+
+            executed_action = executed.values()
+            if len(executed_action) == 1:
+                a_h, a_r = item(executed_action), None
+            elif len(executed_action) == 2:
+                a_h, a_r = executed_action
+            else:
+                raise ValueError(f"{len(executed_action)}-agent is not supported")
 
             parsed_h = parse_action(a_h)
             match parsed_h[0]:

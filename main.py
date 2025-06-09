@@ -163,7 +163,7 @@ class Runner:
                     self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
 
                     if not self.saver.episode_path.exists():
-                        for ith_retry in range(3):
+                        for ith_retry in range(self.args.num_retries):
                             self.arena.reset(
                                 episode_id=episode_id,
                                 helper_goal_type=self.args.helper_goal_type,

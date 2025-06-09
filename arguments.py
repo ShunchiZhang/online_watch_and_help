@@ -145,6 +145,12 @@ def get_args():
         help="The number of times to run the same environment to reduce variance",
     )
     parser.add_argument(
+        "--num_retries",
+        type=int,
+        default=3,
+        help="The number of times to retry till success",
+    )
+    parser.add_argument(
         "--dataset_path",
         type=str,
         help="The path of the environments where we test",
