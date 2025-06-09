@@ -6,6 +6,7 @@ from pathlib import Path
 
 import cv2
 from rich.logging import RichHandler
+from rich.pretty import pretty_repr
 from rich.progress import (
     BarColumn,
     MofNCompleteColumn,
@@ -293,7 +294,7 @@ class Saver:
         self.episode_saved_info["action_seq"] = action_seq
 
         self.episode_saved_info.update(metrics)
-        self.run_result[self.episode_id] = dict(
+        all_metrics = dict(
             metrics,
             success=self.episode_saved_info["success"],
             steps=self.episode_saved_info["steps"],
@@ -302,7 +303,8 @@ class Saver:
             llm_input_tokens=self.episode_saved_info.get("llm_input_tokens", 0),
             llm_output_tokens=self.episode_saved_info.get("llm_output_tokens", 0),
         )
-        self.info(f"[{self.current_episode}] {metrics}")
+        self.run_result[self.episode_id] = all_metrics
+        self.info(f"[{self.current_episode}.metrics]\n{pretty_repr(all_metrics)}")
 
     def record_step(self, steps, env_info, actions, agent_info, graph):
         # ! prevent circular import
@@ -372,7 +374,7 @@ class Saver:
 
     def record_cost(self, cost, name):
         if name is not None:
-            self.saver.debug(f"[{name}] {cost}")
+            self.debug(f"[{name}] {cost}")
         self.episode_saved_info["llm_time"] += cost["time"]
         self.episode_saved_info["llm_dollar"] += cost["dollar"]
         self.episode_saved_info["llm_input_tokens"] += cost["input_tokens"]

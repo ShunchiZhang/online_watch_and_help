@@ -104,6 +104,8 @@ class AutoToM:
 
     def particle_filter(self, curr_story, curr_state, actions, particles):
         # ^ 1. fill
+        particles.filter_low_conf(self.filter_thres)
+        self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         if len(particles) < self.num_particles:
             new_particles = self.new_particles(actions, n=self.num_particles)
             particles.fill_particles(new_particles, self.num_particles)
@@ -121,8 +123,6 @@ class AutoToM:
         self.saver.debug(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
         particles.reweight(probs)
         self.saver.debug(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
-        particles.filter_low_conf(self.filter_thres)
-        self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         return particles
 
     def forward_likelihood(self, curr_story, curr_state, curr_action, particles):
