@@ -21,12 +21,24 @@ class Runner:
     def _get_saver(self):
         if self.args.num_agents == 1:
             method = "single"
-        elif self.args.autotom_method == "autotom":
-            method = "autotom"
-        elif self.args.autotom_method == "llm":
-            method = self.args.autotom_llm_name
+        elif self.args.helper_class == "MCTS":
+            if self.args.helper_goal_type == "unknown":
+                raise ValueError("MCTS helper cannot infer goals")
+            elif self.args.helper_goal_type == "gt":
+                method = "oracle_goal"
+            elif self.args.helper_goal_type == "random":
+                method = "random_goal"
+            else:
+                raise ValueError(f"{self.args.helper_goal_type = }")
+        elif self.args.helper_class == "AutoToM":
+            if self.args.autotom_method == "autotom":
+                method = "autotom"
+            elif self.args.autotom_method == "llm":
+                method = self.args.autotom_llm_name
+            else:
+                raise ValueError(f"{self.args.autotom_method = }")
         else:
-            raise ValueError(f"Invalid config: {self.args.autotom_method}")
+            raise ValueError(f"{self.args.helper_class = }")
 
         self.args.record_dir = (
             Path(self.args.record_dir) / self.args.dataset_path.stem / method
@@ -151,8 +163,15 @@ class Runner:
                     self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
 
                     if not self.saver.episode_path.exists():
-                        self.arena.reset(episode_id, ith_run, helper_use_gt_goal=False)
-                        self.arena.run()
+                        for ith_retry in range(3):
+                            self.arena.reset(
+                                episode_id=episode_id,
+                                helper_goal_type=self.args.helper_goal_type,
+                                seed=len(self.agents) * ith_run * ith_retry,
+                            )
+                            success = self.arena.run()
+                            if success:
+                                break
 
                     self.saver.save_episode()
 

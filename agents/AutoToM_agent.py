@@ -68,7 +68,7 @@ class AutoToM_agent(MCTS_agent):
                         grab_counter.pop(obj)
         return done_counter, grab_counter, touched_obj_ids
 
-    def get_action(self, obs):
+    def get_action(self, obs, must_replan):
         curr_gt_graph = self.saver.episode_saved_info["graph"][-1]
 
         prev_actions = self.saver.episode_saved_info["action"]
@@ -128,8 +128,17 @@ class AutoToM_agent(MCTS_agent):
                 # * for grab, exlucde human touched objects by hacking goal_spec
                 case "holds":
                     candidates = goal_spec[item(goal_spec.keys())]["grab_obj_ids"]
-                    candidates = [c for c in candidates if c not in human_touched]
+                    candidates = [
+                        c
+                        for c in candidates
+                        if c not in (human_touched | helper_touched)
+                    ]
                     goal_spec[item(goal_spec.keys())]["grab_obj_ids"] = candidates
+
+                    # * if all objects are touched, do nothing
+                    if len(candidates) == 0:
+                        self.curr_goal = None
+                        return None, dict(plan=[None])
 
                 # * for put, always assure the goal is not finished by human
                 case "inside" | "on":
@@ -139,7 +148,7 @@ class AutoToM_agent(MCTS_agent):
                     self.curr_goal[item(self.curr_goal.keys())] = len(satisfied) + 1
 
             self.saver.debug(f"[helper.goal] {self.curr_goal}")
-            return super().get_action(obs, goal_spec)
+            return super().get_action(obs, goal_spec, must_replan=must_replan)
 
     def update_curr_goal(self, particles, helper_grab, should_replan):
         # ^ plan for holds {holds_???_2: 1}
@@ -159,7 +168,7 @@ class AutoToM_agent(MCTS_agent):
                 self.curr_goal = {f"holds_{grab}_{self.agent_id}": 1}
 
         # ^ plan for put {on/inside_???_???: ???}
-        if should_replan["put"]:
+        elif should_replan["put"]:
             # * get the most likely object
             probs = Counter()
             for particle in particles.particles:

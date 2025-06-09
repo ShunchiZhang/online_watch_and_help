@@ -21,13 +21,22 @@ from virtualhome.simulation.environment.unity_environment import (
 )
 
 
+def get_by_agent_id(data, agent_id):
+    if int(agent_id) in data:
+        return data[int(agent_id)]
+    elif str(agent_id) in data:
+        return data[str(agent_id)]
+    else:
+        raise ValueError(f"Agent ID {agent_id} not found in data")
+
+
 def prettier(path):
     cmd = [
         f"cd {path.parent}",
         f"prettier --write {path.name}",
         "cd -",
     ]
-    os.system(" && ".join(cmd))
+    os.system(" && ".join(cmd) + " > /dev/null 2>&1")
     return cmd
 
 
@@ -245,27 +254,27 @@ class Saver:
         gt_put = item({k.split("_")[2] for k in gt_goals})
         metrics["num_goals"] = sum([spec["count"] for spec in gt_goals.values()])
 
-        human_actions = self.episode_saved_info["action"]["0"]
-        helper_actions = self.episode_saved_info["action"]["1"]
+        for t, executed in enumerate(self.episode_saved_info["executed"]):
+            _, executed, _, _ = executed
+            a_h, a_r = executed.values()
 
-        for t, (a_h, a_r) in enumerate(zip(human_actions, helper_actions)):
             parsed_h = parse_action(a_h)
             match parsed_h[0]:
                 case "grab":
-                    action_seq.append(f"[{t:2d}] human {a_h}")
+                    action_seq.append(f"[{t + 1:2d}] human {a_h}")
                 case "putin" | "putback":
-                    action_seq.append(f"[{t:2d}] human {a_h}")
+                    action_seq.append(f"[{t + 1:2d}] human {a_h}")
 
             parsed_r = parse_action(a_r)
             match parsed_r[0]:
                 case "grab":
-                    action_seq.append(f"[{t:2d}] helper {a_r}")
+                    action_seq.append(f"[{t + 1:2d}] helper {a_r}")
 
                     metrics["helper_total_grab"] += 1
                     if parsed_r[1] in gt_grab:
                         metrics["helper_correct_grab"] += 1
                 case "putin" | "putback":
-                    action_seq.append(f"[{t:2d}] helper {a_r}")
+                    action_seq.append(f"[{t + 1:2d}] helper {a_r}")
                     metrics["helper_total_put"] += 1
                     if parsed_r[4] == gt_put:
                         metrics["helper_correct_put"] += 1
@@ -288,17 +297,19 @@ class Saver:
         )
         self.info(f"[{self.current_episode}] {metrics}")
 
-    def record_step(self, infos, actions, agent_info):
+    def record_step(self, steps, env_info, actions, agent_info, graph):
+        # ! prevent circular import
+        from utils.utils_graph import EG
+
+        eg = EG(graph)
+
         saved_info = self.episode_saved_info
-        if "satisfied_goals" in infos:
-            saved_info["goals_finished"].append(infos["satisfied_goals"])
-        for agent_id, action in actions.items():
-            saved_info["action"][agent_id].append(action)
 
-        if "graph" in infos:
-            saved_info["graph"].append(infos["graph"])
-
+        # ^ agent info
         for agent_id, info in agent_info.items():
+            # * save
+            action = actions[agent_id]
+            saved_info["action"][agent_id].append(action)
             if self.save_belief:
                 if "belief_graph" in info:
                     saved_info["belief_graph"][agent_id].append(info["belief_graph"])
@@ -307,9 +318,48 @@ class Saver:
                 if "belief" in info:
                     saved_info["belief"][agent_id].append(info["belief"])
             if "plan" in info:
-                saved_info["plan"][agent_id].append(info["plan"][:3])
+                saved_info["plan"][agent_id].append(info["plan"])
             if "obs" in info:
                 saved_info["obs"][agent_id].append([node["id"] for node in info["obs"]])
+
+        hands = dict()
+        for agent_id in range(len(actions)):
+            hands[agent_id] = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
+        saved_info["hands"].append(hands)
+
+        self.info(f"[{steps:2d}] {format_row(actions.values(), '<50')}")
+        self.info(f"hand {format_row(hands.values(), '<50')}")
+
+        # ^ env info
+        if "satisfied_goals" in env_info:
+            saved_info["goals_finished"].append(env_info["satisfied_goals"])
+        if "graph" in env_info:
+            saved_info["graph"].append(env_info["graph"])
+
+        executed_ids = env_info["executed_script"].keys() - env_info["message"].keys()
+        executed_ids = sorted(list(executed_ids))
+        executed_actions = {
+            k: v if k in executed_ids else None for k, v in actions.items()
+        }
+
+        nonempty_actions = {k: v for k, v in actions.items() if v is not None}
+        failed_ids = nonempty_actions.keys() - set(executed_ids)
+        failed_actions = {k: v for k, v in nonempty_actions.items() if k in failed_ids}
+
+        saved_info["executed"].append(
+            [
+                actions,
+                executed_actions,
+                failed_actions,
+                env_info["message"],  # env_info['failed_exec']
+            ]
+        )
+
+        if len(executed_ids) != len(nonempty_actions):
+            self.error(f"[{steps}] {failed_actions = }")
+            if len(env_info["message"]) > 0:
+                self.error(f"[{steps}] {env_info['message'] = }")
+
         self.episode_saved_info = saved_info
         return saved_info
 
@@ -339,8 +389,8 @@ class Saver:
             else:
                 failure_list.append(episode_id)
 
-        avg_steps = sum(steps_list) / len(steps_list)
-        valid_help_rate = valid_help / num_goals
+        avg_steps = sum(steps_list) / len(steps_list) if len(steps_list) > 0 else -1
+        valid_help_rate = valid_help / num_goals if num_goals > 0 else -1
         num_failures = len(failure_list)
         total_episodes = len(self.run_result)
         self.info(f">>>>> summary: run_{self.run_id} >>>>>")

@@ -1,13 +1,20 @@
 import argparse
 
 
-def add_autotom_args(parser):
+def add_helper_args(parser):
     parser.add_argument(
         "--helper_class",
         type=str,
         default="AutoToM",
         choices=["AutoToM", "MCTS"],
         help="The class of the helper to use",
+    )
+    parser.add_argument(
+        "--helper_goal_type",
+        type=str,
+        default="unknown",
+        choices=["unknown", "gt", "random"],
+        help="The type of the helper's goal",
     )
     parser.add_argument(
         "--autotom_thres_grab",
@@ -178,7 +185,7 @@ def get_args():
         help="whether to use an editor or executable",
     )
 
-    parser = add_autotom_args(parser)
+    parser = add_helper_args(parser)
 
     args = parser.parse_args()
     return args

@@ -10,6 +10,7 @@ from virtualhome.simulation.evolving_graph import utils as utils_env
 
 from utils import utils_environment as utils
 from utils import utils_environment as utils_env2
+from utils.utils_graph import get_random_goal
 
 
 class UnityEnvironment(BaseUnityEnvironment):
@@ -237,7 +238,9 @@ class UnityEnvironment(BaseUnityEnvironment):
                 ]
         return new_graph
 
-    def reset(self, environment_graph=None, task_id=None, helper_use_gt_goal=None):
+    def reset(
+        self, environment_graph=None, task_id=None, helper_goal_type=None, seed=None
+    ):
         # Make sure that characters are out of graph, and ids are ok
         # ipdb.set_trace()
         if task_id is None:
@@ -250,8 +253,14 @@ class UnityEnvironment(BaseUnityEnvironment):
         self.init_graph = copy.deepcopy(env_task["init_graph"])
         self.init_rooms = env_task["init_rooms"]
         self.task_goal = env_task["task_goal"]
-        if helper_use_gt_goal:
+        if helper_goal_type == "gt":
             self.task_goal[1] = self.task_goal[0]
+        elif helper_goal_type == "random":
+            self.task_goal[1] = get_random_goal(env_task["env_id"], seed)
+        elif helper_goal_type == "unknown":
+            self.task_goal[1] = dict()
+        else:
+            raise ValueError(f"{helper_goal_type = }")
 
         if self.convert_goal:
             self.task_goal = {
@@ -264,11 +273,11 @@ class UnityEnvironment(BaseUnityEnvironment):
 
         old_env_id = self.env_id
         self.env_id = env_task["env_id"]
-        print(
-            "Resetting... Envid: {}. Taskid: {}. Index: {}".format(
-                self.env_id, self.task_id, task_id
-            )
-        )
+        # print(
+        #     "Resetting... Envid: {}. Taskid: {}. Index: {}".format(
+        #         self.env_id, self.task_id, task_id
+        #     )
+        # )
 
         # TODO: in the future we may want different goals
         if self.convert_goal:
@@ -416,8 +425,8 @@ class UnityEnvironment(BaseUnityEnvironment):
                     )
             if not success:
                 # ipdb.set_trace()
-                print("NO SUCCESS")
-                print(message, script_list)
+                # print("NO SUCCESS")
+                # print(message, script_list)
                 failed_execution = True
             else:
                 self.changed_graph = True
@@ -434,6 +443,11 @@ class UnityEnvironment(BaseUnityEnvironment):
         info["graph"] = graph
         info["executed_script"] = script_dict
         info["failed_exec"] = failed_execution
+        info["message"] = {
+            int(k): v["message"]
+            for k, v in message.items()
+            if v["message"] != "Success"
+        }
         if self.steps == self.max_episode_length:
             done = True
         return obs, reward, done, info
