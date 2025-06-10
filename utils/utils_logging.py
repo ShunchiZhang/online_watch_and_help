@@ -102,8 +102,10 @@ def get_my_logger(
 
 
 class Saver:
-    def __init__(self, logger_name, record_dir, save_img, save_belief):
+    def __init__(self, logger_name, record_dir, save_img, save_belief, process_id):
         self.record_dir = record_dir
+        if process_id is not None:
+            logger_name = f"{logger_name}_{process_id:02d}"
         self._init_logging(logger_name)
 
         self.img_w = save_img["image_width"]

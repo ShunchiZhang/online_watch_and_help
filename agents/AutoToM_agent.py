@@ -69,7 +69,7 @@ class AutoToM_agent(MCTS_agent):
         return done_counter, grab_counter, touched_obj_ids
 
     def get_action(self, obs, must_replan):
-        curr_gt_graph = self.saver.episode_saved_info["graph"][-1]
+        graphs = self.saver.episode_saved_info["graph"]
 
         prev_actions = self.saver.episode_saved_info["action"]
         human_actions = prev_actions[0]
@@ -91,7 +91,7 @@ class AutoToM_agent(MCTS_agent):
             )
             if not keep_particles:
                 self.goal_particles = self.autotom.step(
-                    curr_gt_graph, human_actions, self.goal_particles
+                    graphs[-2], human_actions, self.goal_particles
                 )
 
             # ^ 2. decide to replan or not
@@ -122,7 +122,7 @@ class AutoToM_agent(MCTS_agent):
             # dict_keys(['plan', 'subgoals', 'belief', 'belief_room', 'obs'])
             return None, dict(plan=[None])
         else:
-            goal_spec = utils_env.convert_goal(self.curr_goal, curr_gt_graph)
+            goal_spec = utils_env.convert_goal(self.curr_goal, graphs[0])
 
             match self.curr_verb:
                 # * for grab, exlucde human touched objects by hacking goal_spec
@@ -142,8 +142,8 @@ class AutoToM_agent(MCTS_agent):
 
                 # * for put, always assure the goal is not finished by human
                 case "inside" | "on":
-                    goal_spec = utils_env.convert_goal(self.curr_goal, curr_gt_graph)
-                    satisfied, _ = utils_env.check_progress2(curr_gt_graph, goal_spec)
+                    goal_spec = utils_env.convert_goal(self.curr_goal, graphs[-1])
+                    satisfied, _ = utils_env.check_progress2(graphs[-1], goal_spec)
                     _, satisfied = item(satisfied)
                     self.curr_goal[item(self.curr_goal.keys())] = len(satisfied) + 1
 

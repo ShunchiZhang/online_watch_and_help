@@ -104,8 +104,6 @@ class AutoToM:
 
     def particle_filter(self, curr_story, curr_state, actions, particles):
         # ^ 1. fill
-        particles.filter_low_conf(self.filter_thres)
-        self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         if len(particles) < self.num_particles:
             new_particles = self.new_particles(actions, n=self.num_particles)
             particles.fill_particles(new_particles, self.num_particles)
@@ -114,7 +112,7 @@ class AutoToM:
         while True:
             try:
                 probs = self.forward_likelihood(
-                    curr_story, curr_state, actions[-1], particles
+                    curr_story, curr_state, actions, particles
                 )
                 break
             except Exception as e:
@@ -123,9 +121,11 @@ class AutoToM:
         self.saver.debug(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
         particles.reweight(probs)
         self.saver.debug(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
+        particles.filter_low_conf(self.filter_thres, normalize=False)
+        self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         return particles
 
-    def forward_likelihood(self, curr_story, curr_state, curr_action, particles):
+    def forward_likelihood(self, curr_story, curr_state, actions, particles):
         probs = []
         choices = [particle.to_natlang() for particle in particles.particles]
         # & >>>>> only for debug >>>>>
@@ -135,7 +135,8 @@ class AutoToM:
             prompt = prompts.forward_likelihood(
                 story=curr_story,
                 state=curr_state,
-                action=curr_action,
+                action_history="\n".join(actions[:-1]),
+                action=actions[-1],
                 particle=choice,
             )
             resp, cost = prompts.call_gpt(prompt, self.llm_name)
@@ -144,21 +145,21 @@ class AutoToM:
             likelihood = prompts.Likelihood.model_validate(resp)
             probs.append(likelihood.likelihood)
 
+            saved_choices.append(choice)
+
         # & >>>>> only for debug >>>>>
         log_prompt = prompts.forward_likelihood(
             story=curr_story,
             state=curr_state,
-            action=curr_action,
+            action_history="\n".join(actions[:-1]),
+            action=actions[-1],
             particle="[debug]",
         )
         self.saver.debug(f"[forward]\n{log_prompt}")
         self.saver.debug(f"[forward]\n{pretty_repr(dict(zip(saved_choices, probs)))}")
         # & <<<<< only for debug <<<<<
 
-        partition = sum(probs)
-        if partition == 0:
-            probs = [1 / len(probs) for _ in probs]
-        else:
-            probs = [p / partition for p in probs]
+        if sum(probs) == 0:
+            probs = [1e-2 for _ in probs]
 
         return probs

@@ -132,6 +132,12 @@ def get_args():
         help="The number of episodes to run in debug mode",
     )
     parser.add_argument(
+        "--process_id",
+        type=int,
+        default=None,
+        help="The process id to run parallelly",
+    )
+    parser.add_argument(
         "--episode_ids",
         type=int,
         nargs="+",
@@ -166,7 +172,7 @@ def get_args():
     parser.add_argument(
         "--max_steps",
         type=int,
-        default=200,
+        default=150,
         help="number of steps",
     )
     parser.add_argument(

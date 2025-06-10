@@ -54,6 +54,7 @@ class Runner:
                 image_height=self.args.image_height,
             ),
             save_belief=False,
+            process_id=self.args.process_id,
         )
 
     def _get_env_task_set(self):

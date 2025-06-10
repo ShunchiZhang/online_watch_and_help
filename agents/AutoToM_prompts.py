@@ -57,24 +57,27 @@ class GoalParticles(BaseModel):
         for particle in self.particles:
             particle.p /= partition
 
-    def reweight(self, probs):
+    def reweight(self, probs, normalize=True):
         for particle, p in zip(self.particles, probs):
             particle.p *= p
-        self.normalize()
+        if normalize:
+            self.normalize()
 
-    def filter_low_conf(self, thres):
+    def filter_low_conf(self, thres, normalize=True):
         self.particles = list(
             filter(lambda particle: particle.p >= thres, self.particles)
         )
-        self.normalize()
+        if normalize:
+            self.normalize()
 
-    def fill_particles(self, particles, max_particles):
+    def fill_particles(self, particles, max_particles, normalize=True):
         for particle in particles.particles:
             if particle.to_natlang() not in self.to_natlang().keys():
                 self.particles.append(particle)
 
                 if len(self.particles) == max_particles:
-                    self.normalize()
+                    if normalize:
+                        self.normalize()
                     break
 
     def to_natlang(self):
@@ -122,24 +125,34 @@ propose = partial(propose.format, schema=GoalParticles.model_json_schema())
 
 
 forward_likelihood = """\
-Based on the current environment state and human's overall goal, what is the likelihood that human would take the action described below?
+Based on the current environment state and human's action history andoverall goal (the overall goal could be partially completed or not started yet), what is the likelihood that human would take the current action described below?
 
-Some hints: An action is highly likely if it directly contributes to the overall goal, e.g., walking toward a goal object, grabbing a goal object, or putting it to the intended location.
-
-If the action involves grabbing an object not mentioned in the goal, or placing an object somewhere other than the target location specified in the goal, the likelihood should be 0.
+Hints:
+- An current action is highly likely if it directly contributes to any uncompleted subgoals, like:
+  - walking toward a object (or its room) of an uncompleted subgoal, or
+  - walking toward the target location (or its room) with a object of an uncompleted subgoal, or
+  - grabbing a object of an uncompleted subgoal, or
+  - putting a object of an uncompleted subgoal to the target location.
+- An current action is unlikely if it involves:
+  - grabbing an object not mentioned in the goal, or
+  - grabbing an object but its related subgoals are all completed, or
+  - placing an object somewhere other than the target location.
 
 ## Current Environment State
 {story}
 
 {state}
 
-## Human's overall goal
+## Human's Action History
+{action_history}
+
+## Human's overall goal (could be partially completed or not started yet)
 {particle}
 
-## Action
+## Current Action
 {action}
 
-What is the likelihood of the action given the current environment state and human's overall goal, i.e., p(action | state, goal)?
+What is the likelihood of the current action given the current environment state and human's action history and overall goal (the overall goal could be partially completed or not started yet), according to the hints above? Please check carefully if the current action maps to any of the hints above before giving your answer.
 
 Your response should include a JSON that follows the schema: {schema}.
 """
@@ -159,7 +172,7 @@ LLM_PRICING = {
 def call_gpt(prompt, llm_name):
     client = OpenAI()
     if llm_name.startswith("gpt"):
-        kwargs = dict(temperature=0)
+        kwargs = dict(temperature=0.1)
     elif llm_name.startswith("o"):
         kwargs = dict(reasoning_effort="high")
     else:
