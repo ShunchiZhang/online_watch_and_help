@@ -11,7 +11,7 @@
     {
       "type": "shell",
       "label": "clear main.log",
-      "command": "echo '' > logs/train_env_task_set_2_full_task.all_apts.0,1,2,4,5/main.log"
+      "command": "echo '' > logs/2_per_apt-task_all-apts_0,1,2,4,5/main.log"
     },
     {
       "type": "shell",

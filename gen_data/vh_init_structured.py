@@ -16,20 +16,16 @@ parser.add_argument(
     "--num-per-apartment", type=int, default=2, help="Maximum #episodes/apartment"
 )
 parser.add_argument("--seed", type=int, default=10, help="Seed for the apartments")
-
-parser.add_argument("--split", type=str, default="train", help="split")
 parser.add_argument("--task", type=str, default="all", help="Task name")
 parser.add_argument(
     "--apt_str",
     type=str,
-    default="0,1,2,4,5",
+    default="0,1,2,4,5",  # train
+    # default="3,6", # test
     help="The apartments where we will generate the data",
 )
 parser.add_argument("--port", type=str, default="8092", help="Task name")
 parser.add_argument("--display", type=int, default=0, help="Task name")
-parser.add_argument(
-    "--mode", type=str, default="full", choices=["simple", "full"], help="Task name"
-)
 parser.add_argument(
     "--use-editor", action="store_true", default=False, help="Use unity editor"
 )
@@ -74,13 +70,6 @@ if __name__ == "__main__":
         rand = random.Random(args.seed)
         nprand = np.random.RandomState(args.seed)
 
-    if args.split == "test":
-        pass
-        # args.apt_str = '3,6'
-        # args.num_per_apartment = 20
-    else:
-        pass
-        # args.apt_str = '0,1,2,4,5'
     with open("gen_data/data/init_pool_structured.json") as file:
         init_pool = json.load(file)
     # comm = comm_unity.UnityCommunication()
@@ -425,7 +414,7 @@ if __name__ == "__main__":
     pickle.dump(
         env_task_set,
         open(
-            f"dataset/structured_agent/{args.split}_env_task_set_{args.num_per_apartment}_{args.mode}_task.{args.task}_apts.{args.apt_str}.pik",
+            f"dataset/{args.num_per_apartment}_per_apt-task_{args.task}-apts_{args.apt_str}.pik",
             "wb",
         ),
     )

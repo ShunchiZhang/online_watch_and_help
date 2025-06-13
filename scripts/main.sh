@@ -10,7 +10,7 @@ set +a
 lsof -i :${port} -t | xargs -r kill -9
 
 executable_file="../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app"
-dataset_path="./dataset/structured_agent/train_env_task_set_2_full_task.all_apts.0,1,2,4,5.pik"
+dataset_path="./dataset/2_per_apt-task_all-apts_0,1,2,4,5.pik"
 
 cmd="python main.py \
   --executable_file="${executable_file}" \
