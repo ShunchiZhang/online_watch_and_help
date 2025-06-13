@@ -68,8 +68,8 @@ class AutoToM_agent(MCTS_agent):
                         grab_counter.pop(obj)
         return done_counter, grab_counter, touched_obj_ids
 
-    def get_action(self, obs, must_replan):
-        graphs = self.saver.episode_saved_info["graph"]
+    def get_action(self, obs):
+        curr_gt_graph = self.saver.episode_saved_info["graph"][-1]
 
         prev_actions = self.saver.episode_saved_info["action"]
         human_actions = prev_actions[0]
@@ -91,7 +91,7 @@ class AutoToM_agent(MCTS_agent):
             )
             if not keep_particles:
                 self.goal_particles = self.autotom.step(
-                    graphs[-2], human_actions, self.goal_particles
+                    curr_gt_graph, human_actions, self.goal_particles
                 )
 
             # ^ 2. decide to replan or not
@@ -122,33 +122,24 @@ class AutoToM_agent(MCTS_agent):
             # dict_keys(['plan', 'subgoals', 'belief', 'belief_room', 'obs'])
             return None, dict(plan=[None])
         else:
-            goal_spec = utils_env.convert_goal(self.curr_goal, graphs[0])
+            goal_spec = utils_env.convert_goal(self.curr_goal, curr_gt_graph)
 
             match self.curr_verb:
                 # * for grab, exlucde human touched objects by hacking goal_spec
                 case "holds":
                     candidates = goal_spec[item(goal_spec.keys())]["grab_obj_ids"]
-                    candidates = [
-                        c
-                        for c in candidates
-                        if c not in (human_touched | helper_touched)
-                    ]
+                    candidates = [c for c in candidates if c not in human_touched]
                     goal_spec[item(goal_spec.keys())]["grab_obj_ids"] = candidates
-
-                    # * if all objects are touched, do nothing
-                    if len(candidates) == 0:
-                        self.curr_goal = None
-                        return None, dict(plan=[None])
 
                 # * for put, always assure the goal is not finished by human
                 case "inside" | "on":
-                    goal_spec = utils_env.convert_goal(self.curr_goal, graphs[-1])
-                    satisfied, _ = utils_env.check_progress2(graphs[-1], goal_spec)
+                    goal_spec = utils_env.convert_goal(self.curr_goal, curr_gt_graph)
+                    satisfied, _ = utils_env.check_progress2(curr_gt_graph, goal_spec)
                     _, satisfied = item(satisfied)
                     self.curr_goal[item(self.curr_goal.keys())] = len(satisfied) + 1
 
             self.saver.debug(f"[helper.goal] {self.curr_goal}")
-            return super().get_action(obs, goal_spec, must_replan=must_replan)
+            return super().get_action(obs, goal_spec)
 
     def update_curr_goal(self, particles, helper_grab, should_replan):
         # ^ plan for holds {holds_???_2: 1}

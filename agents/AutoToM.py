@@ -112,7 +112,7 @@ class AutoToM:
         while True:
             try:
                 probs = self.forward_likelihood(
-                    curr_story, curr_state, actions, particles
+                    curr_story, curr_state, actions[-1], particles
                 )
                 break
             except Exception as e:
@@ -121,11 +121,11 @@ class AutoToM:
         self.saver.debug(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
         particles.reweight(probs)
         self.saver.debug(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
-        particles.filter_low_conf(self.filter_thres, normalize=False)
+        particles.filter_low_conf(self.filter_thres)
         self.saver.debug(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
         return particles
 
-    def forward_likelihood(self, curr_story, curr_state, actions, particles):
+    def forward_likelihood(self, curr_story, curr_state, curr_action, particles):
         probs = []
         choices = [particle.to_natlang() for particle in particles.particles]
         # & >>>>> only for debug >>>>>
@@ -135,8 +135,7 @@ class AutoToM:
             prompt = prompts.forward_likelihood(
                 story=curr_story,
                 state=curr_state,
-                action_history="\n".join(actions[:-1]),
-                action=actions[-1],
+                action=curr_action,
                 particle=choice,
             )
             resp, cost = prompts.call_gpt(prompt, self.llm_name)
@@ -151,15 +150,17 @@ class AutoToM:
         log_prompt = prompts.forward_likelihood(
             story=curr_story,
             state=curr_state,
-            action_history="\n".join(actions[:-1]),
-            action=actions[-1],
+            action=curr_action,
             particle="[debug]",
         )
         self.saver.debug(f"[forward]\n{log_prompt}")
         self.saver.debug(f"[forward]\n{pretty_repr(dict(zip(saved_choices, probs)))}")
         # & <<<<< only for debug <<<<<
 
-        if sum(probs) == 0:
-            probs = [1e-2 for _ in probs]
+        partition = sum(probs)
+        if partition == 0:
+            probs = [1 / len(probs) for _ in probs]
+        else:
+            probs = [p / partition for p in probs]
 
         return probs

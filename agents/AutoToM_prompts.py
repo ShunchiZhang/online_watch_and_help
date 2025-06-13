@@ -125,34 +125,24 @@ propose = partial(propose.format, schema=GoalParticles.model_json_schema())
 
 
 forward_likelihood = """\
-Based on the current environment state and human's action history andoverall goal (the overall goal could be partially completed or not started yet), what is the likelihood that human would take the current action described below?
+Based on the current environment state and human's overall goal, what is the likelihood that human would take the action described below?
 
-Hints:
-- An current action is highly likely if it directly contributes to any uncompleted subgoals, like:
-  - walking toward a object (or its room) of an uncompleted subgoal, or
-  - walking toward the target location (or its room) with a object of an uncompleted subgoal, or
-  - grabbing a object of an uncompleted subgoal, or
-  - putting a object of an uncompleted subgoal to the target location.
-- An current action is unlikely if it involves:
-  - grabbing an object not mentioned in the goal, or
-  - grabbing an object but its related subgoals are all completed, or
-  - placing an object somewhere other than the target location.
+Some hints: An action is highly likely if it directly contributes to the overall goal, e.g., walking toward a goal object, grabbing a goal object, or putting it to the intended location.
+
+If the action involves grabbing an object not mentioned in the goal, or placing an object somewhere other than the target location specified in the goal, the likelihood should be 0.
 
 ## Current Environment State
 {story}
 
 {state}
 
-## Human's Action History
-{action_history}
-
-## Human's overall goal (could be partially completed or not started yet)
+## Human's overall goal
 {particle}
 
-## Current Action
+## Action
 {action}
 
-What is the likelihood of the current action given the current environment state and human's action history and overall goal (the overall goal could be partially completed or not started yet), according to the hints above? Please check carefully if the current action maps to any of the hints above before giving your answer.
+What is the likelihood of the action given the current environment state and human's overall goal, i.e., p(action | state, goal)?
 
 Your response should include a JSON that follows the schema: {schema}.
 """
@@ -172,7 +162,7 @@ LLM_PRICING = {
 def call_gpt(prompt, llm_name):
     client = OpenAI()
     if llm_name.startswith("gpt"):
-        kwargs = dict(temperature=0.1)
+        kwargs = dict(temperature=0)
     elif llm_name.startswith("o"):
         kwargs = dict(reasoning_effort="high")
     else:

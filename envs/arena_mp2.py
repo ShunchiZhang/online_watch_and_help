@@ -59,12 +59,6 @@ class ArenaMP(object):
         actions = dict()
         agents_info = dict()
 
-        executed = self.saver.episode_saved_info["executed"]
-        must_replan = len(executed) > 1 and any(
-            (a is not None) and (("grab" in a) or ("put" in a))
-            for a in executed[-1][1].values()
-        )
-
         for it, agent in enumerate(self.agents):
             match agent.agent_type:
                 case "MCTS":
@@ -73,14 +67,10 @@ class ArenaMP(object):
                         # * `self.env.goal_spec` has additional 'final' 'reward' keys
                         # * than `self.env.task_goal`
                         goal_spec=self.env.goal_spec[it],
-                        must_replan=must_replan,
                     )
                 case "AutoToM":
                     # * AutoToM_agent will collect info from `saver`
-                    actions[it], agents_info[it] = agent.get_action(
-                        obs=obs[it],
-                        must_replan=must_replan,
-                    )
+                    actions[it], agents_info[it] = agent.get_action(obs=obs[it])
 
         return actions, agents_info
 
