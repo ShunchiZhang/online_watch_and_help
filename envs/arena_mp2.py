@@ -1,7 +1,5 @@
 import atexit
 
-from utils.utils_graph import EG
-
 
 # @ray.remote
 class ArenaMP(object):
@@ -28,16 +26,26 @@ class ArenaMP(object):
             "belief": {i: [] for i in range(len(self.agents))},
             "belief_room": {i: [] for i in range(len(self.agents))},
             "belief_graph": {i: [] for i in range(len(self.agents))},
+            "hands": [],
+            "executed": [],
+            "llm_time": 0,
+            "llm_dollar": 0,
+            "llm_input_tokens": 0,
+            "llm_output_tokens": 0,
         }
 
-    def reset(self, task_id, ith_run, helper_use_gt_goal):
+    def reset(self, episode_id, helper_goal_type, seed):
         ob = None
         while ob is None:
-            ob = self.env.reset(task_id=task_id, helper_use_gt_goal=helper_use_gt_goal)
+            ob = self.env.reset(
+                task_id=episode_id,
+                helper_goal_type=helper_goal_type,
+                seed=seed,
+            )
         self.reset_saver()
 
         for it, agent in enumerate(self.agents):
-            agent.seed = (it + ith_run * 2) * 5
+            agent.seed = seed + it
             agent.saver = self.saver
             match agent.agent_type:
                 case "MCTS":
@@ -69,8 +77,8 @@ class ArenaMP(object):
     def step(self):
         obs = self.env.get_observations()
         actions, agents_info = self.get_actions(obs)
-        obs, reward, done, infos = self.env.step(actions)
-        return (obs, reward, done, infos), actions, agents_info
+        obs, reward, done, env_info = self.env.step(actions)
+        return (obs, reward, done, env_info), actions, agents_info
 
     def save_camera_img(self, step):
         for agent_id in range(len(self.agents)):
@@ -94,22 +102,20 @@ class ArenaMP(object):
 
         while True:
             pbar.update(pbar_step, advance=1)
-            (obs, reward, done, infos), actions, agents_info = self.step()
+            (obs, reward, done, env_info), actions, agents_info = self.step()
             self.save_camera_img(self.env.steps)
 
-            eg = EG(self.env.get_graph())
-            for ith_agent in range(len(self.agents)):
-                plan = agents_info[ith_agent]["plan"]
-                in_hand = eg[ith_agent + 1].holds()
-                self.saver.info(f"[{self.env.steps}]agent{ith_agent}/{in_hand}/{plan}")
-            self.saver.flush()
-
-            self.saver.record_step(infos, actions, agents_info)
+            steps = self.env.steps
+            graph = self.env.get_graph()
+            self.saver.record_step(steps, env_info, actions, agents_info, graph)
 
             if done:
                 break
 
-        self.saver.episode_saved_info["success"] = infos["finished"]
+        success = env_info["finished"]
+        self.saver.episode_saved_info["success"] = success
         self.saver.episode_saved_info["steps"] = self.env.steps
 
         pbar.remove_task(pbar_step)
+
+        return success

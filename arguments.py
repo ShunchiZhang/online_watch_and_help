@@ -1,13 +1,20 @@
 import argparse
 
 
-def add_autotom_args(parser):
+def add_helper_args(parser):
     parser.add_argument(
         "--helper_class",
         type=str,
         default="AutoToM",
         choices=["AutoToM", "MCTS"],
         help="The class of the helper to use",
+    )
+    parser.add_argument(
+        "--helper_goal_type",
+        type=str,
+        default="unknown",
+        choices=["unknown", "gt", "random"],
+        help="The type of the helper's goal",
     )
     parser.add_argument(
         "--autotom_thres_grab",
@@ -125,6 +132,12 @@ def get_args():
         help="The number of episodes to run in debug mode",
     )
     parser.add_argument(
+        "--process_id",
+        type=int,
+        default=None,
+        help="The process id to run parallelly",
+    )
+    parser.add_argument(
         "--episode_ids",
         type=int,
         nargs="+",
@@ -136,6 +149,12 @@ def get_args():
         type=int,
         default=1,
         help="The number of times to run the same environment to reduce variance",
+    )
+    parser.add_argument(
+        "--num_retries",
+        type=int,
+        default=3,
+        help="The number of times to retry till success",
     )
     parser.add_argument(
         "--dataset_path",
@@ -153,7 +172,7 @@ def get_args():
     parser.add_argument(
         "--max_steps",
         type=int,
-        default=200,
+        default=150,
         help="number of steps",
     )
     parser.add_argument(
@@ -178,7 +197,7 @@ def get_args():
         help="whether to use an editor or executable",
     )
 
-    parser = add_autotom_args(parser)
+    parser = add_helper_args(parser)
 
     args = parser.parse_args()
     return args

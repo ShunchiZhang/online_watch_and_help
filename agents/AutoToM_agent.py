@@ -159,7 +159,7 @@ class AutoToM_agent(MCTS_agent):
                 self.curr_goal = {f"holds_{grab}_{self.agent_id}": 1}
 
         # ^ plan for put {on/inside_???_???: ???}
-        if should_replan["put"]:
+        elif should_replan["put"]:
             # * get the most likely object
             probs = Counter()
             for particle in particles.particles:

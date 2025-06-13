@@ -86,7 +86,7 @@ class AutoToM:
                     ),
                     llm_name=self.llm_name,
                 )
-                self.saver.debug(f"[new_particles] {cost}")
+                self.saver.record_cost(cost, "new_particles")
 
                 particles = prompts.GoalParticles.model_validate(resp)
 
@@ -139,10 +139,12 @@ class AutoToM:
                 particle=choice,
             )
             resp, cost = prompts.call_gpt(prompt, self.llm_name)
-            self.saver.debug(f"[forward_likelihood] {cost}")
+            self.saver.record_cost(cost, "forward_likelihood")
 
             likelihood = prompts.Likelihood.model_validate(resp)
             probs.append(likelihood.likelihood)
+
+            saved_choices.append(choice)
 
         # & >>>>> only for debug >>>>>
         log_prompt = prompts.forward_likelihood(

@@ -21,12 +21,24 @@ class Runner:
     def _get_saver(self):
         if self.args.num_agents == 1:
             method = "single"
-        elif self.args.autotom_method == "autotom":
-            method = "autotom"
-        elif self.args.autotom_method == "llm":
-            method = self.args.autotom_llm_name
+        elif self.args.helper_class == "MCTS":
+            if self.args.helper_goal_type == "unknown":
+                raise ValueError("MCTS helper cannot infer goals")
+            elif self.args.helper_goal_type == "gt":
+                method = "oracle_goal"
+            elif self.args.helper_goal_type == "random":
+                method = "random_goal"
+            else:
+                raise ValueError(f"{self.args.helper_goal_type = }")
+        elif self.args.helper_class == "AutoToM":
+            if self.args.autotom_method == "autotom":
+                method = "autotom"
+            elif self.args.autotom_method == "llm":
+                method = self.args.autotom_llm_name
+            else:
+                raise ValueError(f"{self.args.autotom_method = }")
         else:
-            raise ValueError(f"Invalid config: {self.args.autotom_method}")
+            raise ValueError(f"{self.args.helper_class = }")
 
         self.args.record_dir = (
             Path(self.args.record_dir) / self.args.dataset_path.stem / method
@@ -42,6 +54,7 @@ class Runner:
                 image_height=self.args.image_height,
             ),
             save_belief=False,
+            process_id=self.args.process_id,
         )
 
     def _get_env_task_set(self):
@@ -125,6 +138,7 @@ class Runner:
                 file_name=self.args.executable_file,
                 x_display="0",
                 no_graphics=False,
+                timeout_wait=30,
             ),
             base_port=self.args.base_port,
         )
@@ -139,21 +153,29 @@ class Runner:
 
         with self.saver.pbar as pbar:
             pbar_run = pbar.add_task("run", total=self.args.num_runs)
-
             for ith_run in range(self.args.num_runs):
                 pbar.update(pbar_run, advance=1)
-                pbar_episode = pbar.add_task("episode", total=len(episode_ids))
                 self.saver.reset_run(ith_run)
+                if self.saver.run_path.exists():
+                    continue
 
+                pbar_episode = pbar.add_task("episode", total=len(episode_ids))
                 for episode_id in episode_ids:
                     pbar.update(pbar_episode, advance=1)
 
                     self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
-                    if self.saver.episode_path.exists():
-                        continue
 
-                    self.arena.reset(episode_id, ith_run, helper_use_gt_goal=False)
-                    self.arena.run()
+                    if not self.saver.episode_path.exists():
+                        for ith_retry in range(self.args.num_retries):
+                            self.arena.reset(
+                                episode_id=episode_id,
+                                helper_goal_type=self.args.helper_goal_type,
+                                seed=len(self.agents) * ith_run * ith_retry,
+                            )
+                            success = self.arena.run()
+                            if success:
+                                break
+
                     self.saver.save_episode()
 
                 self.saver.save_run()

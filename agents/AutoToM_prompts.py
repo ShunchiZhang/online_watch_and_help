@@ -57,24 +57,27 @@ class GoalParticles(BaseModel):
         for particle in self.particles:
             particle.p /= partition
 
-    def reweight(self, probs):
+    def reweight(self, probs, normalize=True):
         for particle, p in zip(self.particles, probs):
             particle.p *= p
-        self.normalize()
+        if normalize:
+            self.normalize()
 
-    def filter_low_conf(self, thres):
+    def filter_low_conf(self, thres, normalize=True):
         self.particles = list(
             filter(lambda particle: particle.p >= thres, self.particles)
         )
-        self.normalize()
+        if normalize:
+            self.normalize()
 
-    def fill_particles(self, particles, max_particles):
+    def fill_particles(self, particles, max_particles, normalize=True):
         for particle in particles.particles:
             if particle.to_natlang() not in self.to_natlang().keys():
                 self.particles.append(particle)
 
                 if len(self.particles) == max_particles:
-                    self.normalize()
+                    if normalize:
+                        self.normalize()
                     break
 
     def to_natlang(self):
@@ -182,6 +185,8 @@ def call_gpt(prompt, llm_name):
                 resp.usage.completion_tokens * LLM_PRICING[llm_name]["output"],
             ]
         ),
+        input_tokens=resp.usage.prompt_tokens,
+        output_tokens=resp.usage.completion_tokens,
     )
 
     return obj, cost

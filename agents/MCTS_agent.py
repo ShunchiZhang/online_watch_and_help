@@ -224,13 +224,13 @@ class MCTS_agent:
                         if obj_id in visible_ids:
                             if "OPEN" in visible_ids[obj_id]["states"]:
                                 should_replan = True
-                                print("IS OPEN")
+                                # print("IS OPEN")
                     elif "close" in first_action_non_walk:
                         obj_id = int(curr_plan[0].split("(")[1].split(")")[0])
                         if obj_id in visible_ids:
                             if "CLOSED" in visible_ids[obj_id]["states"]:
                                 should_replan = True
-                                print("IS CLOSED")
+                                # print("IS CLOSED")
 
                 if (
                     "open" in last_plan[0]

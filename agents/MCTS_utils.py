@@ -765,8 +765,8 @@ def get_plan(
 
     # ipdb.set_trace()
     # If there is no action predicted but there were goals missing...
-    if len(final_actions) == 0:
-        print("No actions")
+    # if len(final_actions) == 0:
+    #     print("No actions")
     if verbose:
         raise AssertionError
 

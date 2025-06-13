@@ -1,3 +1,4 @@
+import random
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -21,6 +22,13 @@ TASK_TO_OBJECT_NAMES = dict(
     put_fridge=["apple", "cupcake", "pudding", "salmon"],
     setup_table=["cutleryfork", "plate", "waterglass", "wineglass"],
     watch_tv=["chips", "condimentbottle", "remotecontrol"],
+)
+TASK_TO_TARGET_NAMES = dict(
+    prepare_food=["kitchentable", "stove"],
+    put_dishwasher=["dishwasher"],
+    put_fridge=["fridge"],
+    setup_table=["coffeetable", "kitchentable"],
+    watch_tv=["coffeetable"],
 )
 
 TASK_NAMES = sorted(list(TASK_TO_OBJECT_NAMES.keys()))
@@ -117,8 +125,32 @@ def fix_graph(env_task_set):
                 node["obj_transform"]["position"][1] += 0.1
     return env_task_set
 
+def get_random_goal(env_id, seed):
+    goal = dict()
+
+    rng = random.Random(seed)
+
+    task_name = rng.choice(TASK_NAMES)
+
+    target_names = TASK_TO_TARGET_NAMES[task_name]
+    target_name = rng.choice(target_names)
+    target_id = ENV_ID_TO_TARGET_NAME_TO_ID[env_id][target_name]
+    prep = TARGET_NAME_TO_PREP[target_name]
+
+    object_names = TASK_TO_OBJECT_NAMES[task_name]
+    subgoal_count = rng.randint(1, 3)
+    for _ in range(subgoal_count):
+        object_name = rng.choice(object_names)
+        count = rng.randint(1, 6)
+        goal[f"{prep}_{object_name}_{target_id}"] = count
+
+    return goal
+
 
 def parse_action(s):
+    if s is None:
+        return [None]
+
     # Define a regular expression pattern to match the parts of the string
     pattern = r"\[(.*?)\] <(.*?)> \((\d+)\) <(.*?)> \((\d+)\)"
     match = re.match(pattern, s)
