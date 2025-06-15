@@ -249,24 +249,29 @@ class Saver:
         metrics["helper_total_put"] = 0
         metrics["helper_correct_grab"] = 0
         metrics["helper_correct_put"] = 0
-        metrics["helper_valid_help"] = 0
         metrics["helper_valid_step"] = self.episode_saved_info["steps"]
 
         gt_goals = self.episode_saved_info["gt_goals"]
-        gt_grab = {k.split("_")[1] for k in gt_goals}
-        gt_put = item({k.split("_")[2] for k in gt_goals})
-        metrics["num_goals"] = sum([spec["count"] for spec in gt_goals.values()])
+        gt_grab = {k.split("_")[1] for k in gt_goals}  # class_name
+        gt_put = item({k.split("_")[2] for k in gt_goals})  # id
+        num_goals = sum([spec["count"] for spec in gt_goals.values()])
+        metrics["num_goals"] = num_goals
+        metrics["helper_valid_help"] = num_goals
 
-        for t, executed in enumerate(self.episode_saved_info["executed"]):
-            _, executed, _, _ = executed
+        # for t, executed in enumerate(self.episode_saved_info["executed"]):
+        #     _, executed, _, _ = executed
 
-            executed_action = executed.values()
-            if len(executed_action) == 1:
-                a_h, a_r = item(executed_action), None
-            elif len(executed_action) == 2:
-                a_h, a_r = executed_action
-            else:
-                raise ValueError(f"{len(executed_action)}-agent is not supported")
+        #     executed_action = executed.values()
+        #     if len(executed_action) == 1:
+        #         a_h, a_r = item(executed_action), None
+        #     elif len(executed_action) == 2:
+        #         a_h, a_r = executed_action
+        #     else:
+        #         raise ValueError(f"{len(executed_action)}-agent is not supported")
+
+        for t, (a_h, a_r) in enumerate(
+            zip(*self.episode_saved_info["action"].values())
+        ):
 
             parsed_h = parse_action(a_h)
             match parsed_h[0]:
@@ -274,6 +279,7 @@ class Saver:
                     action_seq.append(f"[{t + 1:2d}] human {a_h}")
                 case "putin" | "putback":
                     action_seq.append(f"[{t + 1:2d}] human {a_h}")
+                    metrics["helper_valid_help"] -= 1
 
             parsed_r = parse_action(a_r)
             match parsed_r[0]:
@@ -283,15 +289,21 @@ class Saver:
                     metrics["helper_total_grab"] += 1
                     if parsed_r[1] in gt_grab:
                         metrics["helper_correct_grab"] += 1
+                        action_seq[-1] += " (correct: grab)"
                 case "putin" | "putback":
                     action_seq.append(f"[{t + 1:2d}] helper {a_r}")
                     metrics["helper_total_put"] += 1
                     if parsed_r[4] == gt_put:
                         metrics["helper_correct_put"] += 1
                         if parsed_r[1] in gt_grab:
-                            metrics["helper_valid_help"] += 1
+                            action_seq[-1] += " (correct: grab & put)"
+                        else:
+                            action_seq[-1] += " (correct: put)"
                 case None:
                     metrics["helper_valid_step"] -= 1
+
+        # * as helper won't grab human-touched objects, it's human planner bug
+        metrics["helper_valid_help"] = max(0, metrics["helper_valid_help"])
 
         self.episode_saved_info["action_seq"] = action_seq
 
@@ -411,7 +423,13 @@ class Saver:
         self.info(f"llm_stats: {llm_stats}")
         self.info(f"<<<<< summary: run_{self.run_id} <<<<<")
 
-        detail_keys = ["success", "steps", "num_goals", "helper_valid_help"]
+        detail_keys = [
+            "success",
+            "steps",
+            "num_goals",
+            "helper_valid_help",
+            "helper_total_put",
+        ]
         with self.run_path.open("w") as f:
             json.dump(
                 dict(

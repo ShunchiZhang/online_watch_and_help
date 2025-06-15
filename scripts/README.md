@@ -16,12 +16,19 @@ bash scripts/main.sh 8089 2 MCTS "--helper_goal_type=random --num_runs=5"
 bash scripts/main.sh 8090 2 MCTS "--helper_goal_type=gt --num_runs=5"
 
 # llm
-bash scripts/main.sh 8091 2 AutoToM "--autotom_method=llm --autotom_llm_name=gpt-4o"
+bash scripts/main.sh 8091 2 AutoToM "--num_runs=2 --autotom_method=llm --autotom_llm_name=gpt-4o"
 
 # autotom
-bash scripts/main.sh 9101 2 AutoToM "--autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=1 --episode_ids  0  1  2  3  4  5  6  7  8  9 10"
-bash scripts/main.sh 9201 2 AutoToM "--autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=2 --episode_ids 11 12 13 14 15 16 17 18 19 20"
-bash scripts/main.sh 9301 2 AutoToM "--autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=3 --episode_ids 21 22 23 24 25 26 27 28 29 30 31"
+bash scripts/main.sh 9101 2 AutoToM "--num_runs=2 --autotom_method=autotom --autotom_llm_name=gpt-4o"
+bash scripts/main.sh 9101 2 AutoToM "--num_runs=2 --autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=1 --episode_ids  0  1  2  3  4  5  6  7  8  9 10"
+bash scripts/main.sh 9201 2 AutoToM "--num_runs=2 --autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=2 --episode_ids 11 12 13 14 15 16 17 18 19 20"
+bash scripts/main.sh 9301 2 AutoToM "--num_runs=2 --autotom_method=autotom --autotom_llm_name=gpt-4o --process_id=3 --episode_ids 21 22 23 24 25 26 27 28 29 30 31"
+```
+
+To re-eval:
+```sh
+lla logs/2_per_apt-task_all-apts_0,1,2,4,5/*/run_*/results.json
+# rm logs/2_per_apt-task_all-apts_0,1,2,4,5/*/run_*/results.json
 ```
 
 # Inspect Logs
