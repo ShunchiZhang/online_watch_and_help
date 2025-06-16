@@ -485,9 +485,11 @@ class EG(EnvironmentGraph):
 
         return ret
 
-    def actions_to_natlang(self, actions, init_room, name="Human"):
+    def actions_to_natlang(self, actions, init_room=None, name="Human"):
         actions = dedup_actions(actions)
-        lines = [f"{name} is in the {init_room}"]
+        lines = []
+        if init_room is not None:
+            lines.append(f"{name} is in the {init_room}")
         for action in actions:
             if action is None:
                 continue
@@ -529,7 +531,7 @@ class EG(EnvironmentGraph):
         else:
             return f"the {name} {predicate} nothing"
 
-    def story(self, ctnr_ids, srfc_ids):
+    def env_state(self, ctnr_ids, srfc_ids):
         tree = dict()  # room => ctnr|srfc => obj
 
         rooms = self.get_rooms()

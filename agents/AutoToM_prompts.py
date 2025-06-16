@@ -100,50 +100,68 @@ class Likelihood(BaseModel):
     )
 
 
-question = """\
-In the story below, human is searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
-
-Your are a helpful assistant. In order to help human finishing the task, please predict human's *overall* goal.
-
-IMPORTANT INSTRUCTIONS:
-- *overall* means you should **include both** completed subgoals and possible future subgoals.
-- You should not stick on the completed subgoals, or *too obvious* future subgoals (if human currently grabs an object, predicting it as a future goal is *too obvious*), because your task is to **help** instead of accurate prediction. You can only achieve substantial helping by predicting something that human has not grabbed yet. However, while you focus on novel predictions, don't forget to include the completed subgoals.
-- There is only a single **consistent** target location, i.e., human will put all objects to the same location. The object types and counts may vary though.
-"""
-
+# * p(goal | next_human_action, curr_env_state, curr_human_state, key_action_history)
 propose = """\
-## Story
-{story}
+Human has been searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
 
-{action}
+Your are a helpful assistant. In order to help human, please propose multiple hypotheses of [human's goals to be completed], base on the following information:
 
-## Output Format Requirements
-Instead of simply giving one hypothesis of human's overall goal, please provide a probability distribution over n={n} overall goal hypotheses.
+[current state]
+{curr_env_state}
+
+{curr_human_state}
+
+[key action history]
+{key_action_history}
+
+[human's next action]
+{next_human_action}
+
+Hints:
+- The target location is unique, i.e., human will put all objects to the same location.
+- In order to effectively help human, you should not only propose human's ongoing goals (e.g., human's currently grabbing something), but also novel goals that human has not grabbed yet.
+
+Output Requirements:
+Please provide a probability distribution over n={n} hypotheses of [human's goals to be completed].
 Your response should include a JSON that follows the schema: {schema}
 """
 propose = partial(propose.format, schema=GoalParticles.model_json_schema())
 
-
+# * p(curr_human_action | goal, curr_env_state, curr_human_state, key_action_history)
 forward_likelihood = """\
-Based on the current environment state and human's overall goal, what is the likelihood that human would take the action described below?
+Human has been searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
 
-Some hints: An action is highly likely if it directly contributes to the overall goal, e.g., walking toward a goal object, grabbing a goal object, or putting it to the intended location.
+You are a logical reasoner about rational human behavior. Please estimate the likelihood of:
 
-If the action involves grabbing an object not mentioned in the goal, or placing an object somewhere other than the target location specified in the goal, the likelihood should be 0.
+[human's next action]
+{next_human_action}
 
-## Current Environment State
-{story}
+given the following information:
 
-{state}
+[current state]
+{curr_env_state}
 
-## Human's overall goal
-{particle}
+{curr_human_state}
 
-## Action
-{action}
+[key action history]
+{key_action_history}
 
-What is the likelihood of the action given the current environment state and human's overall goal, i.e., p(action | state, goal)?
+[human's goals to be completed]
+{goal}
 
+Hints:
+- Human is rational, therefore, the likelihood of [human's next action] depends on how it contributes to [human's goals to be completed].
+- An action is highly likely if it directly contributes to the goals, e.g.:
+  - walking towards a goal object or its room, or
+  - walking towards the target location or its room with a goal object, or
+  - grabbing a goal object, or
+  - putting a goal object to the target location.
+- An action is unlikely if it does not contribute to the goals, e.g.:
+  - grabbing an object not mentioned in the goals, or
+  - placing an object somewhere other than the target location.
+
+Output Requirements:
+Please provide a likelihood estimation in float number between 0 and 1.
 Your response should include a JSON that follows the schema: {schema}.
 """
 forward_likelihood = partial(
