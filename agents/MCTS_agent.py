@@ -300,8 +300,10 @@ class MCTS_agent:
                     curr_loc_index = self.get_location_in_goal(obs, obj_grab)
                     if obj_grab not in self.last_loc:
                         raise AssertionError
-                    if curr_loc_index != self.last_loc[obj_grab]:
-                        # The object I wanted to get now changed position, so I should replan
+                    # ! seems reasonable, but not sure about side effect
+                    # if curr_loc_index != self.last_loc[obj_grab]:
+                    if curr_loc_index not in [self.agent_id, self.last_loc[obj_grab]]:
+                        # The object I wanted to get now changed position (and not in my hands), so I should replan
                         # self.last_loc = curr_loc_index
                         should_replan = True
 
@@ -314,8 +316,15 @@ class MCTS_agent:
                         if "hold" in edge["relation_type"].lower()
                         and edge["from_id"] == self.agent_id
                     ]
+                    # ! seems reasonable, but not sure about side effect
                     if object_put not in hands_char:
-                        should_replan = True
+                        if all(
+                            x in self.last_action for x in last_subgoal[0].split("_")
+                        ):
+                            "skip if last_subgoal[0] == self.last_action"
+                            "i.e., the object is just placed"
+                        else:
+                            should_replan = True
 
         time1 = time.time()
         lg = ""

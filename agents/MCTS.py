@@ -9,6 +9,7 @@ from virtualhome.simulation.evolving_graph.environment import Relation
 
 from envs.graph_env import VhGraphEnv
 from utils import utils_environment as utils_env
+from utils.utils_graph import EG
 
 
 class MCTS:
@@ -406,6 +407,14 @@ class MCTS:
                 for edge in curr_state["edges"]
                 if "HOLD" in edge["relation_type"] and edge["from_id"] == self.agent_id
             ]
+
+            if len(hands_busy) == 2:
+                # ! IMPORTANT
+                # ! this avoids self.backup(), i.e., num_visited += 1
+                # ! then avoids being selected in self.select_next_root()
+                assert rollout_step == 0
+                return -float("inf"), [], []
+
             # print('hands_busy:', len(hands_busy), self.agent_id)
             # print("GOAL SPEC", goal_spec)
             recover_unsatisfied = {}
@@ -484,7 +493,8 @@ class MCTS:
                     subg
                     for subg in subgoals
                     if int(subg[0].split("_")[1]) == hands_busy[0]
-                    and subg[0].split("_")[0].lower() == "putin"
+                    # ! put curr_hand instead of double-grab
+                    and subg[0].split("_")[0].lower() in ("put", "putin")
                 ]
                 if len(subgoals_putin) > 0:
                     subgoals = subgoals_putin
@@ -885,8 +895,12 @@ class MCTS:
         return subgoal_prior
 
     def expand(self, leaf_node, t, state_particle):
+        # ! IMPORTANT
+        # ! this avoid expanding the 2-hands case
+        hands_busy = EG(state_particle[1])[self.agent_id].holds()
+
         current_child_actions = []
-        if t < self.max_episode_length:
+        if t < self.max_episode_length and len(hands_busy) != 2:
             expanded_leaf_node, current_child_actions = self.initialize_children(
                 leaf_node, state_particle
             )
@@ -1265,42 +1279,14 @@ class MCTS:
         id2node = self.id2node
         class2id = self.class2id
 
-        opponent_predicate_1 = None
-        opponent_predicate_2 = None
-        # if opponent_subgoal is not None:
-        #     elements = opponent_subgoal.split('_')
-        #     if elements[0] in ['put', 'putIn']:
-        #         obj1_class = None
-        #         for node in state['nodes']:
-        #             if node['id'] == int(elements[1]):
-        #                 obj1_class = node['class_name']
-        #                 break
-        #         # if obj1_class is None:
-        #         #     opponent_subgoal = None
-        #         # else:
-        #         opponent_predicate_1 = '{}_{}_{}'.format(
-        #             'on' if elements[0] == 'put' else 'inside', obj1_class, elements[2]
-        #         )
-        #         opponent_predicate_2 = '{}_{}_{}'.format(
-        #             'on' if elements[0] == 'put' else 'inside', elements[1], elements[2]
-        #         )
-
         subgoal_space, obsed_subgoal_space, overlapped_subgoal_space = [], [], []
-        # ipdb.set_trace()
         for predicate, unsatisfied_val in unsatisfied.items():
-            obj_grabbed = False
             count = unsatisfied_val
             obj_ids_grab = goal_spec[predicate]["grab_obj_ids"]
             container_id = goal_spec[predicate]["container_ids"][0]
-            if (
-                count > 1
-                or count > 0
-                and predicate not in [opponent_predicate_1, opponent_predicate_2]
-            ):
+            if count > 0:
                 elements = predicate.split("_")
-                # print(elements)
                 if elements[0] == "offer":
-                    # ipdb.set_trace()
                     index_offer = container_id
                     if index_offer == 394:
                         raise AssertionError
@@ -1338,12 +1324,12 @@ class MCTS:
                                         tmp_predicate,
                                     ]
                                 )
-                if elements[0] == "on":
-                    subgoal_type = "put"
+                elif elements[0] in ["on", "inside"]:
+                    subgoal_type = dict(on="put", inside="putIn")[elements[0]]
                     obj = elements[1]
                     surface = container_id  # assuming it is a graph node id
                     for node_id in obj_ids_grab:
-                        tmp_predicate = "on_{}_{}".format(node_id, surface)
+                        tmp_predicate = "{}_{}_{}".format(elements[0], node_id, surface)
                         if tmp_predicate not in satisfied[predicate]:
                             tmp_subgoal = "{}_{}_{}".format(
                                 subgoal_type, node_id, surface
@@ -1369,42 +1355,9 @@ class MCTS:
                                         ]
                                     )
                                 if node_id in inhand_objects:
-                                    pass
-                                    # return [subgoal_space[-1]]
-                elif elements[0] == "inside":
-                    subgoal_type = "putIn"
-                    obj = elements[1]
-                    surface = container_id  # assuming it is a graph node id
-                    for node_id in obj_ids_grab:
-                        tmp_predicate = "inside_{}_{}".format(node_id, surface)
-                        if tmp_predicate not in satisfied[predicate]:
-                            tmp_subgoal = "{}_{}_{}".format(
-                                subgoal_type, node_id, surface
-                            )
-                            if tmp_subgoal != opponent_subgoal:
-                                subgoal_space.append(
-                                    [
-                                        "{}_{}_{}".format(
-                                            subgoal_type, node_id, surface
-                                        ),
-                                        predicate,
-                                        tmp_predicate,
-                                    ]
-                                )
-                                if node_id in obsed_objs:
-                                    obsed_subgoal_space.append(
-                                        [
-                                            "{}_{}_{}".format(
-                                                subgoal_type, node_id, surface
-                                            ),
-                                            predicate,
-                                            tmp_predicate,
-                                        ]
-                                    )
-                                if node_id in inhand_objects:
-                                    obj_grabbed = True
-                                    pass
-                                    # return [subgoal_space[-1]]
+                                    # ! put curr_hand instead of double-grab
+                                    # assert len(inhand_objects) < 2
+                                    return [subgoal_space[-1]]
 
                 elif elements[0] == "offOn":
                     # Xavi: What is this for?
@@ -1485,47 +1438,6 @@ class MCTS:
                                 ["touch_{}".format(n_id), predicate, tmp_predicate]
                             )
 
-            elif (
-                predicate in [opponent_predicate_1, opponent_predicate_2]
-                and len(inhand_objects_opponent) == 0
-            ):
-                elements = predicate.split("_")
-                # print(elements)
-                if elements[0] == "on":
-                    subgoal_type = "put"
-                    obj = elements[1]
-                    surface = container_id  # assuming it is a graph node id
-                    for node_id in obj_ids_grab:
-                        tmp_predicate = "on_{}_{}".format(node_id, surface)
-                        if tmp_predicate not in satisfied[predicate]:
-                            tmp_subgoal = "{}_{}_{}".format(
-                                subgoal_type, node_id, surface
-                            )
-                            overlapped_subgoal_space.append(
-                                [
-                                    "{}_{}_{}".format(subgoal_type, node_idz, surface),
-                                    predicate,
-                                    tmp_predicate,
-                                ]
-                            )
-                elif elements[0] == "inside":
-                    subgoal_type = "putIn"
-                    obj = elements[1]
-                    surface = container_id  # assuming it is a graph node id
-                    for node_id in obj_ids_grab:
-                        tmp_predicate = "inside_{}_{}".format(node["id"], surface)
-                        if tmp_predicate not in satisfied[predicate]:
-                            tmp_subgoal = "{}_{}_{}".format(
-                                subgoal_type, node_id, surface
-                            )
-                            overlapped_subgoal_space.append(
-                                [
-                                    "{}_{}_{}".format(subgoal_type, node_id, surface),
-                                    predicate,
-                                    tmp_predicate,
-                                ]
-                            )
-
         if len(obsed_subgoal_space) > 0:
             pass
             # return obsed_subgoal_space
@@ -1596,6 +1508,4 @@ class MCTS:
                                     ]
                                 )
 
-        # if obj_grabbed:
-        #     ipdb.set_trace()
         return subgoal_space
