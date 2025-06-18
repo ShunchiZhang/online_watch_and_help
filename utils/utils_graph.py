@@ -125,6 +125,7 @@ def fix_graph(env_task_set):
                 node["obj_transform"]["position"][1] += 0.1
     return env_task_set
 
+
 def get_random_goal(env_id, seed):
     goal = dict()
 
@@ -175,14 +176,54 @@ def parse_action(s):
             return [action, device, number]
 
 
-def dedup_actions(actions):
-    if len(actions) == 0:
-        return actions
-    result = [actions[0]]
-    for action in actions[1:]:
+def dedup_list(l):
+    if len(l) == 0:
+        return l
+    result = [l[0]]
+    for action in l[1:]:
         if action != result[-1]:
             result.append(action)
     return result
+
+
+def subgoal_string_to_tuple(s):
+    if s is None:
+        return None
+    res = []
+    for i, part in enumerate(s.split("_")):
+        if i != 0:
+            part = int(part)
+        res.append(part)
+    return tuple(res)
+
+
+def check_progress(actions):
+    """
+    Input:  history actions
+    Output: done counter (put), ongoing counter (grab)
+    """
+    done_counter = Counter()
+    grab_counter = Counter()
+    touched_obj_ids = set()
+    for action in actions:
+        if action is None:
+            continue
+        parsed = parse_action(action)
+        match parsed[0]:
+            case "grab":
+                obj = parsed[1]
+                grab_counter[obj] += 1
+
+                touched_obj_ids.add(int(parsed[2]))
+
+            case "putin" | "putback":
+                obj = parsed[1]
+                done_counter[obj] += 1
+
+                grab_counter[obj] -= 1
+                if grab_counter[obj] == 0:
+                    grab_counter.pop(obj)
+    return done_counter, grab_counter, touched_obj_ids
 
 
 class GN(GraphNode):
@@ -486,7 +527,7 @@ class EG(EnvironmentGraph):
         return ret
 
     def actions_to_natlang(self, actions, init_room=None, name="Human"):
-        actions = dedup_actions(actions)
+        actions = dedup_list(actions)
         lines = []
         if init_room is not None:
             lines.append(f"{name} is in the {init_room}")
@@ -586,6 +627,8 @@ class EG(EnvironmentGraph):
             lines.append(
                 f"{name} is holding {', '.join(f'{cnt} {obj}' for obj, cnt in in_hands.items())}."
             )
+        else:
+            lines.append(f"{name} is holding nothing.")
         return "\n".join(lines)
 
     def goal_rooms(self, goal):

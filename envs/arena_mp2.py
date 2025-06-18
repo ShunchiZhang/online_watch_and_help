@@ -1,4 +1,5 @@
 import atexit
+from collections import Counter
 
 
 # @ray.remote
@@ -23,15 +24,13 @@ class ArenaMP(object):
             "graph": [self.env.init_unity_graph],
             "action": {i: [] for i in range(len(self.agents))},
             "plan": {i: [] for i in range(len(self.agents))},
+            "subgoals": {i: [] for i in range(len(self.agents))},
             "belief": {i: [] for i in range(len(self.agents))},
             "belief_room": {i: [] for i in range(len(self.agents))},
             "belief_graph": {i: [] for i in range(len(self.agents))},
             "hands": [],
             "executed": [],
-            "llm_time": 0,
-            "llm_dollar": 0,
-            "llm_input_tokens": 0,
-            "llm_output_tokens": 0,
+            "cost": Counter(),
         }
 
     def reset(self, episode_id, helper_goal_type, seed):
@@ -48,10 +47,10 @@ class ArenaMP(object):
             agent.seed = seed + it
             agent.saver = self.saver
             match agent.agent_type:
-                case "MCTS":
+                case "MCTS" | "GnP" | "NOPA":
                     agent.reset(self.env.full_graph)
-                case "AutoToM":
-                    agent.reset(self.env.full_graph)
+                case _:
+                    raise ValueError(f"Invalid agent type: {agent.agent_type}")
 
         return ob
 
@@ -68,9 +67,11 @@ class ArenaMP(object):
                         # * than `self.env.task_goal`
                         goal_spec=self.env.goal_spec[it],
                     )
-                case "AutoToM":
+                case "GnP" | "NOPA":
                     # * AutoToM_agent will collect info from `saver`
                     actions[it], agents_info[it] = agent.get_action(obs=obs[it])
+                case _:
+                    raise ValueError(f"Invalid agent type: {agent.agent_type}")
 
         return actions, agents_info
 

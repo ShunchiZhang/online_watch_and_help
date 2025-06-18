@@ -10,14 +10,9 @@
     },
     {
       "type": "shell",
-      "label": "clear main.log",
-      "command": "echo '' > logs/2_per_apt-task_all-apts_0,1,2,4,5/main.log"
+      "label": "kill all",
+      "command": "pgrep -fl VirtualHome"
+      // "command": "pkill -f VirtualHome"
     },
-    {
-      "type": "shell",
-      "label": "clear all",
-      "dependsOn": ["clear :8088", "clear main.log"],
-      "dependsOrder": "parallel"
-    }
   ]
 }

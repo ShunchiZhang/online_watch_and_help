@@ -5,8 +5,8 @@ def add_helper_args(parser):
     parser.add_argument(
         "--helper_class",
         type=str,
-        default="AutoToM",
-        choices=["AutoToM", "MCTS"],
+        default="MCTS",
+        choices=["MCTS", "GnP", "NOPA"],
         help="The class of the helper to use",
     )
     parser.add_argument(
@@ -17,27 +17,39 @@ def add_helper_args(parser):
         help="The type of the helper's goal",
     )
     parser.add_argument(
-        "--autotom_thres_grab",
+        "--nopa_thres_exec",
         type=float,
         default=0.80,
-        help="The threshold for the grab action in AutoToM",
+        help="The threshold for the execution in NOPA_agent",
     )
     parser.add_argument(
-        "--autotom_thres_put",
+        "--gnp_thres_grab",
         type=float,
-        default=0.60,
-        help="The threshold for the put action in AutoToM",
+        default=0.70,
+        help="The threshold for the grab action in GnP_agent",
+    )
+    parser.add_argument(
+        "--gnp_thres_put",
+        type=float,
+        default=0.50,
+        help="The threshold for the put action in GnP_agent",
+    )
+    parser.add_argument(
+        "--gnp_start_at_put",
+        action="store_true",
+        default=False,
+        help="Whether to start AutoToM at the beginning or wait for human's first putback action",
     )
     parser.add_argument(
         "--autotom_thres_filter",
         type=float,
-        default=0.20,
+        default=0.10,
         help="The threshold for the particle filter in AutoToM",
     )
     parser.add_argument(
         "--autotom_num_particles",
         type=int,
-        default=5,
+        default=20,
         help="The number of particles to use in AutoToM",
     )
     parser.add_argument(
@@ -53,12 +65,6 @@ def add_helper_args(parser):
         choices=["autotom", "llm"],
         default="autotom",
         help="The method to use in AutoToM",
-    )
-    parser.add_argument(
-        "--autotom_start_at_put",
-        action="store_true",
-        default=False,
-        help="Whether to start AutoToM at the beginning or wait for human's first putback action",
     )
     return parser
 

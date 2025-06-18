@@ -1,8 +1,9 @@
 import pickle
 from pathlib import Path
 
-from agents.AutoToM_agent import AutoToM_agent
+from agents.AutoToM_agent import GnP_agent
 from agents.MCTS_agent import MCTS_agent
+from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
 from envs.arena_mp2 import ArenaMP
 from envs.unity_environment import UnityEnvironment
@@ -21,30 +22,32 @@ class Runner:
     def _get_saver(self):
         if self.args.num_agents == 1:
             method = "single"
-        elif self.args.helper_class == "MCTS":
-            if self.args.helper_goal_type == "unknown":
-                raise ValueError("MCTS helper cannot infer goals")
-            elif self.args.helper_goal_type == "gt":
-                method = "oracle_goal"
-            elif self.args.helper_goal_type == "random":
-                method = "random_goal"
-            else:
-                raise ValueError(f"{self.args.helper_goal_type = }")
-        elif self.args.helper_class == "AutoToM":
-            if self.args.autotom_method == "autotom":
-                method = "autotom"
-            elif self.args.autotom_method == "llm":
-                method = self.args.autotom_llm_name
-            else:
-                raise ValueError(f"{self.args.autotom_method = }")
         else:
-            raise ValueError(f"{self.args.helper_class = }")
+            if self.args.helper_class == "MCTS":
+                if self.args.helper_goal_type == "unknown":
+                    raise ValueError("MCTS helper cannot infer goals")
+                elif self.args.helper_goal_type == "gt":
+                    method_suffix = "oracle_goal"
+                elif self.args.helper_goal_type == "random":
+                    method_suffix = "random_goal"
+                else:
+                    raise ValueError(f"{self.args.helper_goal_type = }")
+            elif self.args.helper_class in ["GnP", "NOPA"]:
+                if self.args.autotom_method == "autotom":
+                    method_suffix = "autotom"
+                elif self.args.autotom_method == "llm":
+                    method_suffix = self.args.autotom_llm_name
+                else:
+                    raise ValueError(f"{self.args.autotom_method = }")
+            else:
+                raise ValueError(f"{self.args.helper_class = }")
+            method = f"{self.args.helper_class}_{method_suffix}"
 
         self.args.record_dir = (
             Path(self.args.record_dir) / self.args.dataset_path.stem / method
         )
-
         self.args.record_dir.mkdir(parents=True, exist_ok=True)
+
         self.saver = utils_logging.Saver(
             logger_name=self.args.logger_name,
             record_dir=self.args.record_dir,
@@ -110,18 +113,25 @@ class Runner:
             if i == 0 or self.args.helper_class == "MCTS":
                 self.agents.append(MCTS_agent(**args_agent))
             else:
-                match self.args.helper_class.lower():
-                    case "autotom":
-                        args_agent["autotom_args"] = dict(
-                            grab_thres=self.args.autotom_thres_grab,
-                            put_thres=self.args.autotom_thres_put,
-                            filter_thres=self.args.autotom_thres_filter,
-                            num_particles=self.args.autotom_num_particles,
-                            llm_name=self.args.autotom_llm_name,
-                            method=self.args.autotom_method,
-                            start_at_put=self.args.autotom_start_at_put,
+                args_agent["autotom_args"] = dict(
+                    filter_thres=self.args.autotom_thres_filter,
+                    num_particles=self.args.autotom_num_particles,
+                    llm_name=self.args.autotom_llm_name,
+                    method=self.args.autotom_method,
+                )
+                match self.args.helper_class:
+                    case "GnP":
+                        args_agent["agent_args"] = dict(
+                            thres_grab=self.args.gnp_thres_grab,
+                            thres_put=self.args.gnp_thres_put,
+                            start_at_put=self.args.gnp_start_at_put,
                         )
-                        self.agents.append(AutoToM_agent(**args_agent))
+                        self.agents.append(GnP_agent(**args_agent))
+                    case "NOPA":
+                        args_agent["agent_args"] = dict(
+                            thres_exec=self.args.nopa_thres_exec,
+                        )
+                        self.agents.append(NOPA_agent(**args_agent))
                     case _:
                         raise ValueError(f"Invalid config: {self.args.helper_class}")
 

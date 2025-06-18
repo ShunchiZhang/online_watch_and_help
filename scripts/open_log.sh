@@ -1,4 +1,4 @@
-dataset_name="2_per_apt-task_all-apts_0,1,2,4,5"
+dataset_name="2_per_apt-task_all-apts_0,1,2,4,5-subset_15"
 
 run_id=$1
 episode_id=$2

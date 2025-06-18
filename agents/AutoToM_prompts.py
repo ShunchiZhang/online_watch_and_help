@@ -1,9 +1,12 @@
+import asyncio
+import logging
+import random
 import time
 from collections import Counter
 from functools import partial
 
 from json_repair import repair_json
-from openai import OpenAI
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
@@ -11,7 +14,7 @@ from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
 
 class Object(BaseModel):
     type: str = Field(..., choices=OBJECT_NAMES)
-    count: int = Field(..., ge=1)
+    count: int = Field(..., ge=1, le=6)
 
     @staticmethod
     def to_counter(objects):
@@ -24,7 +27,8 @@ class Object(BaseModel):
     def from_counter(counter):
         objects = []
         for obj_type, count in counter.items():
-            objects.append(Object(type=obj_type, count=count))
+            if count > 0:
+                objects.append(Object(type=obj_type, count=count))
         return objects
 
 
@@ -39,9 +43,11 @@ class GoalParticle(BaseModel):
     target: Target
     p: float = Field(..., ge=0, le=1, description="Probability of the goal proposal")
 
-    def minus_objects(self, done_counter):
-        left_counter = Object.to_counter(self.objects) - done_counter
-        self.objects = Object.from_counter(left_counter)
+    def minus_objects(self, counter):
+        self.objects = Object.from_counter(Object.to_counter(self.objects) - counter)
+
+    def plus_objects(self, counter):
+        self.objects = Object.from_counter(Object.to_counter(self.objects) + counter)
 
     def to_natlang(self):
         counter = Object.to_counter(self.objects)
@@ -63,9 +69,10 @@ class GoalParticles(BaseModel):
         if normalize:
             self.normalize()
 
-    def filter_low_conf(self, thres, normalize=True):
-        self.particles = list(
-            filter(lambda particle: particle.p >= thres, self.particles)
+    def filter_low_conf(self, thres, min_num, normalize=True):
+        self.particles = sorted(self.particles, key=lambda x: x.p, reverse=True)
+        self.particles = self.particles[:min_num] + list(
+            filter(lambda x: x.p >= thres, self.particles[min_num:])
         )
         if normalize:
             self.normalize()
@@ -86,9 +93,50 @@ class GoalParticles(BaseModel):
             contents[particle.to_natlang()] = round(100 * particle.p, 1)
         return contents
 
-    def minus_objects(self, done_counter):
+    def minus_objects(self, counter):
         for particle in self.particles:
-            particle.minus_objects(done_counter)
+            particle.minus_objects(counter)
+
+    def plus_objects(self, counter):
+        for particle in self.particles:
+            particle.plus_objects(counter)
+
+    def probs_grab(self, in_log=False):
+        probs = Counter()
+        for particle in self.particles:
+            for object in particle.objects:
+                probs[object.type] += particle.p
+
+        if in_log:
+            for obj_type, prob in probs.items():
+                probs[obj_type] = round(100 * prob, 1)
+
+        return dict(probs.most_common())
+
+    def probs_put(self, in_log=False):
+        probs = Counter()
+        for particle in self.particles:
+            probs[particle.target.type] += particle.p
+
+        if in_log:
+            for obj_type, prob in probs.items():
+                probs[obj_type] = round(100 * prob, 1)
+
+        return dict(probs.most_common())
+
+    def best_in_probs(self, probs):
+        candidates = [x for x, p in probs.items() if p == max(probs.values())]
+        if len(candidates) == 0:
+            return None, 0
+        else:
+            answer = random.Random(0).choice(candidates)
+            return answer, probs[answer]
+
+    def best_grab(self):
+        return self.best_in_probs(self.probs_grab(in_log=False))
+
+    def best_put(self):
+        return self.best_in_probs(self.probs_put(in_log=False))
 
     def __len__(self):
         return len(self.particles)
@@ -102,9 +150,9 @@ class Likelihood(BaseModel):
 
 # * p(goal | next_human_action, curr_env_state, curr_human_state, key_action_history)
 propose = """\
-Human has been searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
+Human has been working on a task of moving some objects to a target location. The task type can only be one of the following: setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
 
-Your are a helpful assistant. In order to help human, please propose multiple hypotheses of [human's goals to be completed], base on the following information:
+Your are a helpful assistant. In order to help human, please propose multiple hypotheses of [human's overall goal] (including both finished and potential future subgoals), base on the following information:
 
 [current state]
 {curr_env_state}
@@ -118,23 +166,20 @@ Your are a helpful assistant. In order to help human, please propose multiple hy
 {next_human_action}
 
 Hints:
-- The target location is unique, i.e., human will put all objects to the same location.
-- In order to effectively help human, you should not only propose human's ongoing goals (e.g., human's currently grabbing something), but also novel goals that human has not grabbed yet.
+- The task type is constant and the target location is unique, i.e., human will be consistently doing the same task (setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV) and put all objects to the same location.
+- Please propose diverse goals in both object type and count.
 
 Output Requirements:
-Please provide a probability distribution over n={n} hypotheses of [human's goals to be completed].
-Your response should include a JSON that follows the schema: {schema}
+Please provide a probability distribution over n={n} hypotheses of [human's overall goal] (including both finished and potential future subgoals).
+Your response should include the probability distribution formatted according to this JSON schema: {schema}
 """
 propose = partial(propose.format, schema=GoalParticles.model_json_schema())
 
 # * p(curr_human_action | goal, curr_env_state, curr_human_state, key_action_history)
 forward_likelihood = """\
-Human has been searching for some objects to place them to a target location. It could be either setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
+Human has been working on a task of moving some objects to a target location.
 
-You are a logical reasoner about rational human behavior. Please estimate the likelihood of:
-
-[human's next action]
-{next_human_action}
+Please estimate the likelihood of: [human's next action] {next_human_action}
 
 given the following information:
 
@@ -143,26 +188,17 @@ given the following information:
 
 {curr_human_state}
 
-[key action history]
-{key_action_history}
-
-[human's goals to be completed]
+[human's unfinished goals]
 {goal}
 
 Hints:
-- Human is rational, therefore, the likelihood of [human's next action] depends on how it contributes to [human's goals to be completed].
-- An action is highly likely if it directly contributes to the goals, e.g.:
-  - walking towards a goal object or its room, or
-  - walking towards the target location or its room with a goal object, or
-  - grabbing a goal object, or
-  - putting a goal object to the target location.
-- An action is unlikely if it does not contribute to the goals, e.g.:
-  - grabbing an object not mentioned in the goals, or
-  - placing an object somewhere other than the target location.
+- If human holds nothing, human must grab a goal object, or walk towards a goal object or its room. **Please note: it is perfectly fine to grab any goal object, not necessarily the nearest one.**
+- If human holds something, human must put the object to the target location, or walk towards the target location or its room.
+- The action is impossible (p=0) if it contradicts the above rules.
 
 Output Requirements:
 Please provide a likelihood estimation in float number between 0 and 1.
-Your response should include a JSON that follows the schema: {schema}.
+Your response should include the likelihood estimation formatted according to this JSON schema: {schema}
 """
 forward_likelihood = partial(
     forward_likelihood.format, schema=Likelihood.model_json_schema()
@@ -177,30 +213,41 @@ LLM_PRICING = {
 }
 
 
-def call_gpt(prompt, llm_name):
-    client = OpenAI()
-    if llm_name.startswith("gpt"):
-        kwargs = dict(temperature=0)
-    elif llm_name.startswith("o"):
-        kwargs = dict(reasoning_effort="high")
+async def call_gpt(prompt, model_slug, out_type, **kwargs):
+    client = AsyncOpenAI()
+    if model_slug.startswith("gpt"):
+        base_args = dict(temperature=0)
+    elif model_slug.startswith("o"):
+        base_args = dict(reasoning_effort="high")
     else:
-        raise ValueError(f"Invalid llm_name: {llm_name}")
+        raise ValueError(f"Invalid model_slug: {model_slug}")
 
-    t1 = time.time()
-    resp = client.chat.completions.create(
-        model=llm_name,
-        messages=[dict(role="user", content=prompt)],
-        **kwargs,
-    )
-    t2 = time.time()
+    while True:
+        try:
+            resp = await client.chat.completions.create(
+                model=model_slug,
+                messages=[dict(role="user", content=prompt)],
+                **{**base_args, **kwargs},
+            )
+            # * advantage of using repair_json instead of response_format:
+            # * model can freely output CoT then final answer
+            resp_text = resp.choices[0].message.content
+            if out_type is not None:
+                obj = repair_json(resp_text, return_objects=True)
+                if isinstance(obj, list):
+                    obj = obj[-1]  # keep the last valid json
+                obj = out_type.model_validate(obj)
+            else:
+                obj = resp_text
+            break
+        except Exception as e:
+            logging.error(f"{e}: {resp_text}")
 
-    obj = repair_json(resp.choices[0].message.content, return_objects=True)
-    cost = dict(
-        time=t2 - t1,
+    cost = Counter(
         dollar=sum(
             [
-                resp.usage.prompt_tokens * LLM_PRICING[llm_name]["input"],
-                resp.usage.completion_tokens * LLM_PRICING[llm_name]["output"],
+                resp.usage.prompt_tokens * LLM_PRICING[model_slug]["input"],
+                resp.usage.completion_tokens * LLM_PRICING[model_slug]["output"],
             ]
         ),
         input_tokens=resp.usage.prompt_tokens,
@@ -208,3 +255,40 @@ def call_gpt(prompt, llm_name):
     )
 
     return obj, cost
+
+
+def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
+    async def _call_gpt_batch(prompts):
+        async_responses = [
+            call_gpt(prompt, model_slug, out_type, **kwargs) for prompt in prompts
+        ]
+        return await asyncio.gather(*async_responses)
+
+    t1 = time.time()
+    results = asyncio.run(_call_gpt_batch(prompts))
+    t2 = time.time()
+
+    objs, costs = zip(*results)
+    total_cost = sum(costs, Counter(time=t2 - t1))
+
+    return objs, total_cost
+
+
+if __name__ == "__main__":
+    objs, cost = call_gpt_batch(
+        [
+            "19*19=?",
+            "18*18=?",
+            "17*17=?",
+            "16*16=?",
+            "15*15=?",
+            "14*14=?",
+            "13*13=?",
+            "12*12=?",
+            "11*11=?",
+        ],
+        model_slug="gpt-4o-mini",
+        out_type=None,
+    )
+    print(cost)
+    print(*objs, sep="\n")

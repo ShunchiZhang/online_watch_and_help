@@ -18,23 +18,36 @@
       },
       "args": [
         "--executable_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
-        // "--dataset_path=./dataset/2_per_apt-task_all-apts_0,1,2,4,5.pik",
-        "--dataset_path=./dataset/2_per_apt-task_setup_table-apts_0,1,2,4,5.pik",
+        "--dataset_path=./dataset/2_per_apt-task_all-apts_0,1,2,4,5-subset_15.pik",
+        // "--num_agents=2",
         "--num_agents=2",
         // "--autotom_method=llm",
-        // "--helper_class=MCTS",
+        "--helper_class=GnP",
         // "--helper_goal_type=gt",
         "--autotom_method=autotom",
-        "--base_port=8999",
+        "--base_port=8088",
         "--debug",
         "--num_runs=1",
         // "--max_steps=50",
-        "--episode_ids=0",
+        "--episode_ids=0"
         // "--autotom_llm_name=gpt-4o-mini",
         // "--autotom_start_at_put",
         // "--autotom_num_particles=3",
       ],
       "preLaunchTask": "clear :8088"
+    },
+    {
+      "name": "AutoToM_prompts",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "agents/AutoToM_prompts.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      }
     },
     {
       "name": "vh_init_structured",
@@ -49,7 +62,7 @@
         "PYTHONPATH": "${workspaceFolder}"
       },
       "args": [
-        "--exec_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app",
+        "--exec_file=../../ShunchiZhang/virtualhome/unity/macos_exec.2.2.4.app"
       ]
     }
   ]

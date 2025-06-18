@@ -451,6 +451,8 @@ class UnityEnvironment(BaseUnityEnvironment):
                 failed_execution = True
             else:
                 self.changed_graph = True
+        else:
+            message = {"0": {"message": "Empty action"}}
 
         # Obtain reward
         reward, done, info = self.reward()

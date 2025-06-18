@@ -92,11 +92,18 @@ def get_my_logger(
         if file_name is not None:
             file_handler = logging.FileHandler(file_name)
             file_handler.setLevel(file_level)
-            if "res_py" not in name:
-                file_handler.setFormatter(logging.Formatter(file_format))
-            else:
-                file_handler.setFormatter(LevelBasedFormatter(RES_PY_FORMATS))
+            file_handler.setFormatter(logging.Formatter(file_format))
             logger.addHandler(file_handler)
+
+            file_handler_info = logging.FileHandler(file_name.with_suffix(".info.log"))
+            file_handler_info.setLevel(logging.INFO)
+            file_handler_info.setFormatter(logging.Formatter(file_format))
+            logger.addHandler(file_handler_info)
+
+            file_handler_warn = logging.FileHandler(file_name.with_suffix(".warn.log"))
+            file_handler_warn.setLevel(logging.WARNING)
+            file_handler_warn.setFormatter(logging.Formatter(file_format))
+            logger.addHandler(file_handler_warn)
 
     return logger
 
@@ -269,10 +276,8 @@ class Saver:
         #     else:
         #         raise ValueError(f"{len(executed_action)}-agent is not supported")
 
-        for t, (a_h, a_r) in enumerate(
-            zip(*self.episode_saved_info["action"].values())
-        ):
-
+        for t, a_list in enumerate(zip(*self.episode_saved_info["action"].values())):
+            a_h = a_list[0]
             parsed_h = parse_action(a_h)
             match parsed_h[0]:
                 case "grab":
@@ -281,6 +286,10 @@ class Saver:
                     action_seq.append(f"[{t + 1:2d}] human {a_h}")
                     metrics["helper_valid_help"] -= 1
 
+            if len(a_list) == 1:
+                continue
+
+            a_r = a_list[1]
             parsed_r = parse_action(a_r)
             match parsed_r[0]:
                 case "grab":
@@ -322,7 +331,7 @@ class Saver:
 
     def record_step(self, steps, env_info, actions, agent_info, graph):
         # ! prevent circular import
-        from utils.utils_graph import EG
+        from utils.utils_graph import EG, dedup_list, subgoal_string_to_tuple
 
         eg = EG(graph)
 
@@ -342,16 +351,25 @@ class Saver:
                     saved_info["belief"][agent_id].append(info["belief"])
             if "plan" in info:
                 saved_info["plan"][agent_id].append(info["plan"])
+            if "subgoals" in info:
+                subgoals = dedup_list(sum(info["subgoals"], []))
+                subgoals = [subgoal_string_to_tuple(s) for s in subgoals]
+                saved_info["subgoals"][agent_id].append(subgoals)
             if "obs" in info:
                 saved_info["obs"][agent_id].append([node["id"] for node in info["obs"]])
 
         hands = dict()
         for agent_id in range(len(actions)):
-            hands[agent_id] = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
+            hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
+            assert len(hands_objects) <= 1
+            hands[agent_id] = hands_objects
         saved_info["hands"].append(hands)
 
-        self.info(f"[{steps:2d}] {format_row(actions.values(), '<50')}")
-        self.info(f"hand {format_row(hands.values(), '<50')}")
+        curr_subgoals = [s[-1] for s in saved_info["subgoals"].values()]
+        self.warning(f"[{steps:2d}] {'-' * 80}")
+        self.warning(f" action  {format_row(actions.values(), '<50')}")
+        self.warning(f"  goal   {format_row(curr_subgoals, '<50')}")
+        self.warning(f"  hand   {format_row(hands.values(), '<50')}")
 
         # ^ env info
         if "satisfied_goals" in env_info:
@@ -389,10 +407,7 @@ class Saver:
     def record_cost(self, cost, name):
         if name is not None:
             self.debug(f"[{name}] {cost}")
-        self.episode_saved_info["llm_time"] += cost["time"]
-        self.episode_saved_info["llm_dollar"] += cost["dollar"]
-        self.episode_saved_info["llm_input_tokens"] += cost["input_tokens"]
-        self.episode_saved_info["llm_output_tokens"] += cost["output_tokens"]
+        self.episode_saved_info["cost"] += cost
 
     def save_run(self):
         failure_list = []
