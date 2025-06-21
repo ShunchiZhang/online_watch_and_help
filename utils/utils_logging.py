@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import pickle
+from collections import Counter
 from pathlib import Path
 
 import cv2
@@ -137,6 +138,8 @@ class Saver:
 
         self.save_belief = save_belief
 
+        self.null_int = 1_000
+
     def flush(self):
         for handler in self.logger.handlers:
             handler.flush()
@@ -203,6 +206,7 @@ class Saver:
             with self.episode_eval_path.open("r") as f:
                 eval_data = json.load(f)
             self.episode_saved_info = {**other_data, **graph_data, **eval_data}
+            self.upgrade_saved_info()
 
         else:
             self.critical(f">>>>> start: {self.current_episode} >>>>>")
@@ -218,6 +222,27 @@ class Saver:
 
             self.info(f"[{task_name}] (apt_id={env_id})\n{goal}")
 
+    def upgrade_saved_info(self):
+        saved_info = self.episode_saved_info
+
+        if "helper" not in saved_info:
+            for k in [
+                "total_grab",
+                "total_put",
+                "correct_grab",
+                "correct_put",
+                "valid_step",
+                "valid_help",
+            ]:
+                saved_info[k] = saved_info.get(f"helper_{k}", self.null_int)
+                saved_info.pop(f"helper_{k}")
+
+        if "key_actions" not in saved_info:
+            saved_info["key_actions"] = saved_info.get("action_seq", [])
+            saved_info.pop("action_seq")
+
+        self.episode_saved_info = saved_info
+
     def save_episode(self):
         saved_info = self.episode_saved_info
         graph_keys = {
@@ -231,17 +256,10 @@ class Saver:
         eval_keys = {
             "success",
             "steps",
+            "helper",
             "num_goals",
-            "helper_total_grab",
-            "helper_total_put",
-            "helper_correct_grab",
-            "helper_correct_put",
-            "helper_valid_help",
-            "helper_valid_step",
-            "llm_time",
-            "llm_dollar",
-            "llm_input_tokens",
-            "llm_output_tokens",
+            "cost",
+            "key_actions",
         }
 
         graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
@@ -264,20 +282,25 @@ class Saver:
     def save_episode_eval(self):
         from utils.utils_graph import item, parse_action
 
-        metrics = dict()
-        action_seq = []
-        metrics["helper_total_grab"] = 0
-        metrics["helper_total_put"] = 0
-        metrics["helper_correct_grab"] = 0
-        metrics["helper_correct_put"] = 0
-        metrics["helper_valid_step"] = self.episode_saved_info.get("steps", 1_000)
+        saved_info = self.episode_saved_info
 
-        gt_goals = self.episode_saved_info["gt_goals"]
+        gt_goals = saved_info["gt_goals"]
         gt_grab = {k.split("_")[1] for k in gt_goals}  # class_name
         gt_put = item({k.split("_")[2] for k in gt_goals})  # id
         num_goals = sum([spec["count"] for spec in gt_goals.values()])
-        metrics["num_goals"] = num_goals
-        metrics["helper_valid_help"] = num_goals
+
+        metrics = dict(
+            helper=dict(
+                total_grab=0,
+                total_put=0,
+                correct_grab=0,
+                correct_put=0,
+                valid_step=saved_info.get("steps", self.null_int),
+                valid_help=num_goals,
+            ),
+            num_goals=num_goals,
+            key_actions=[],
+        )
 
         # for t, executed in enumerate(self.episode_saved_info["executed"]):
         #     _, executed, _, _ = executed
@@ -290,15 +313,15 @@ class Saver:
         #     else:
         #         raise ValueError(f"{len(executed_action)}-agent is not supported")
 
-        for t, a_list in enumerate(zip(*self.episode_saved_info["action"].values())):
+        for t, a_list in enumerate(zip(*saved_info["action"].values())):
             a_h = a_list[0]
             parsed_h = parse_action(a_h)
             match parsed_h[0]:
                 case "grab":
-                    action_seq.append(f"[{t + 1:2d}] human {a_h}")
+                    metrics["key_actions"].append(f"[{t:2d}] human {a_h}")
                 case "putin" | "putback":
-                    action_seq.append(f"[{t + 1:2d}] human {a_h}")
-                    metrics["helper_valid_help"] -= 1
+                    metrics["key_actions"].append(f"[{t:2d}] human {a_h}")
+                    metrics["helper"]["valid_help"] -= 1
 
             if len(a_list) == 1:
                 continue
@@ -307,47 +330,42 @@ class Saver:
             parsed_r = parse_action(a_r)
             match parsed_r[0]:
                 case "grab":
-                    action_seq.append(f"[{t + 1:2d}] helper {a_r}")
+                    metrics["key_actions"].append(f"[{t:2d}] helper {a_r}")
 
-                    metrics["helper_total_grab"] += 1
+                    metrics["helper"]["total_grab"] += 1
                     if parsed_r[1] in gt_grab:
-                        metrics["helper_correct_grab"] += 1
-                        action_seq[-1] += " (correct: grab)"
+                        metrics["helper"]["correct_grab"] += 1
+                        metrics["key_actions"][-1] += "  // correct: grab"
                 case "putin" | "putback":
-                    action_seq.append(f"[{t + 1:2d}] helper {a_r}")
-                    metrics["helper_total_put"] += 1
+                    metrics["key_actions"].append(f"[{t:2d}] helper {a_r}")
+                    metrics["helper"]["total_put"] += 1
                     if parsed_r[4] == gt_put:
-                        metrics["helper_correct_put"] += 1
+                        metrics["helper"]["correct_put"] += 1
                         if parsed_r[1] in gt_grab:
-                            action_seq[-1] += " (correct: grab & put)"
+                            metrics["key_actions"][-1] += "  // correct: grab & put"
                         else:
-                            action_seq[-1] += " (correct: put)"
+                            metrics["key_actions"][-1] += "  // correct: put"
                 case None:
-                    metrics["helper_valid_step"] -= 1
+                    metrics["helper"]["valid_step"] -= 1
 
         # * as helper won't grab human-touched objects, it's human planner bug
-        metrics["helper_valid_help"] = max(0, metrics["helper_valid_help"])
+        metrics["helper"]["valid_help"] = max(0, metrics["helper"]["valid_help"])
+        saved_info.update(metrics)
+        self.episode_saved_info = saved_info
 
-        self.episode_saved_info["action_seq"] = action_seq
-
-        self.episode_saved_info.update(metrics)
-        all_metrics = dict(
-            metrics,
-            success=self.episode_saved_info.get("success", False),
-            steps=self.episode_saved_info.get("steps", 1_000),
-            llm_time=self.episode_saved_info.get("llm_time", 0),
-            llm_dollar=self.episode_saved_info.get("llm_dollar", 0),
-            llm_input_tokens=self.episode_saved_info.get("llm_input_tokens", 0),
-            llm_output_tokens=self.episode_saved_info.get("llm_output_tokens", 0),
+        key_metrics = dict(
+            valid_help=saved_info["helper"]["valid_help"],
+            total_put=saved_info["helper"]["total_put"],
+            success=saved_info.get("success", False),
+            steps=saved_info.get("steps", self.null_int),
+            cost=saved_info.get("cost", dict()),
         )
-        self.run_result[self.episode_id] = all_metrics
-        self.info(f"[{self.current_episode}.metrics]\n{pretty_repr(all_metrics)}")
+        self.run_result[self.episode_id] = key_metrics
+        self.info(f"[{self.current_episode}.metrics]\n{pretty_repr(key_metrics)}")
 
-    def record_step(self, steps, env_info, actions, agent_info, graph):
+    def record_pre_step(self, steps, actions, agent_info, graph):
         # ! prevent circular import
         from utils.utils_graph import EG, dedup_list, subgoal_string_to_tuple
-
-        eg = EG(graph)
 
         saved_info = self.episode_saved_info
 
@@ -382,6 +400,7 @@ class Saver:
         self.warning(f"  goal   {format_row(curr_subgoals, '<50')}")
 
         hands = dict()
+        eg = EG(graph)
         for agent_id in range(len(actions)):
             hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
             if len(hands_objects) >= 2:
@@ -390,6 +409,11 @@ class Saver:
         saved_info["hands"].append(hands)
 
         self.warning(f"  hand   {format_row(hands.values(), '<50')}")
+
+        self.episode_saved_info = saved_info
+
+    def record_post_step(self, steps, env_info, actions):
+        saved_info = self.episode_saved_info
 
         # ^ env info
         if "satisfied_goals" in env_info:
@@ -422,7 +446,6 @@ class Saver:
                 self.error(f"[{steps}] {env_info['message'] = }")
 
         self.episode_saved_info = saved_info
-        return saved_info
 
     def record_cost(self, cost, name):
         if name is not None:
@@ -432,45 +455,44 @@ class Saver:
     def save_run(self):
         failure_list = []
         steps_list = []
-        num_goals = 0
-        valid_help = 0
-        llm_stats = dict(time=0, dollar=0, input_tokens=0, output_tokens=0)
+        valid_help, total_put = 0, 0
+        cost = Counter()
         for episode_id, metrics in self.run_result.items():
-            llm_stats["time"] += metrics["llm_time"] / 3600
-            llm_stats["dollar"] += metrics["llm_dollar"]
-            llm_stats["input_tokens"] += metrics["llm_input_tokens"]
-            llm_stats["output_tokens"] += metrics["llm_output_tokens"]
+            cost += Counter(metrics["cost"])
             if metrics["success"]:
                 steps_list.append(metrics["steps"])
-                num_goals += metrics["num_goals"]
-                valid_help += metrics["helper_valid_help"]
+                valid_help += metrics["valid_help"]
+                total_put += metrics["total_put"]
             else:
                 failure_list.append(episode_id)
 
+        cost = dict(cost)
+        if "time" in cost:
+            cost["time"] /= 3600
+
         avg_steps = sum(steps_list) / len(steps_list) if len(steps_list) > 0 else -1
-        valid_help_rate = valid_help / num_goals if num_goals > 0 else -1
+        valid_help_rate = valid_help / total_put if total_put > 0 else -1
         num_failures = len(failure_list)
         total_episodes = len(self.run_result)
         self.info(f">>>>> summary: run_{self.run_id} >>>>>")
         self.info(f"avg_steps: {avg_steps:.1f}")
-        self.info(f"total_valid_help: {valid_help}/{num_goals} ({valid_help_rate:.2f})")
+        self.info(f"total_valid_help: {valid_help}/{total_put} ({valid_help_rate:.2f})")
         self.info(f"failures: {failure_list} ({num_failures}/{total_episodes})")
-        self.info(f"llm_stats: {llm_stats}")
+        self.info(f"cost: {cost}")
         self.info(f"<<<<< summary: run_{self.run_id} <<<<<")
 
         detail_keys = [
             "success",
             "steps",
-            "num_goals",
-            "helper_valid_help",
-            "helper_total_put",
+            "valid_help",
+            "total_put",
         ]
         with self.run_path.open("w") as f:
             json.dump(
                 dict(
                     avg_steps=avg_steps,
                     failures=failure_list,
-                    llm=llm_stats,
+                    cost=cost,
                     details_keys=detail_keys,
                     details={
                         episode_id: [result[k] for k in detail_keys]

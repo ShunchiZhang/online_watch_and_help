@@ -169,15 +169,12 @@ class Runner:
         with self.saver.pbar as pbar:
             pbar_run = pbar.add_task("run", total=self.args.num_runs)
             for ith_run in range(self.args.num_runs):
-                pbar.update(pbar_run, advance=1)
                 self.saver.reset_run(ith_run)
                 if self.saver.run_path.exists():
                     continue
 
                 pbar_episode = pbar.add_task("episode", total=len(episode_ids))
                 for episode_id in episode_ids:
-                    pbar.update(pbar_episode, advance=1)
-
                     self.saver.reset_episode(episode_id, self.env_task_set[episode_id])
 
                     if not self.saver.episode_path.exists():
@@ -211,8 +208,10 @@ class Runner:
                                     raise e
 
                     self.saver.save_episode()
+                    pbar.update(pbar_episode, advance=1)
 
                 self.saver.save_run()
+                pbar.update(pbar_run, advance=1)
                 pbar.remove_task(pbar_episode)
 
 

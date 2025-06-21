@@ -76,10 +76,17 @@ class ArenaMP(object):
         return actions, agents_info
 
     def step(self):
+        steps = self.env.steps
+        graph = self.env.get_graph()
         obs = self.env.get_observations()
+
         actions, agents_info = self.get_actions(obs)
+        self.saver.record_pre_step(steps, actions, agents_info, graph)
+
         obs, reward, done, env_info = self.env.step(actions)
-        return (obs, reward, done, env_info), actions, agents_info
+        self.saver.record_post_step(steps, env_info, actions)
+
+        return done, env_info["finished"]
 
     def save_camera_img(self, step):
         for agent_id in range(len(self.agents)):
@@ -102,18 +109,13 @@ class ArenaMP(object):
         pbar_step = pbar.add_task("step", total=self.env.max_episode_length)
 
         while True:
+            done, success = self.step()
             pbar.update(pbar_step, advance=1)
-            (obs, reward, done, env_info), actions, agents_info = self.step()
             self.save_camera_img(self.env.steps)
-
-            steps = self.env.steps
-            graph = self.env.get_graph()
-            self.saver.record_step(steps, env_info, actions, agents_info, graph)
 
             if done:
                 break
 
-        success = env_info["finished"]
         self.saver.episode_saved_info["success"] = success
         self.saver.episode_saved_info["steps"] = self.env.steps
 
