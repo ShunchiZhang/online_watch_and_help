@@ -178,7 +178,7 @@ def get_args():
     parser.add_argument(
         "--max_steps",
         type=int,
-        default=150,
+        default=200,
         help="number of steps",
     )
     parser.add_argument(

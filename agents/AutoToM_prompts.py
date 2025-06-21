@@ -14,7 +14,7 @@ from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
 
 class Object(BaseModel):
     type: str = Field(..., choices=OBJECT_NAMES)
-    count: int = Field(..., ge=1, le=6)
+    count: int = Field(..., ge=1)
 
     @staticmethod
     def to_counter(objects):
@@ -213,8 +213,7 @@ LLM_PRICING = {
 }
 
 
-async def call_gpt(prompt, model_slug, out_type, **kwargs):
-    client = AsyncOpenAI()
+async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
     if model_slug.startswith("gpt"):
         base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
@@ -224,7 +223,7 @@ async def call_gpt(prompt, model_slug, out_type, **kwargs):
 
     while True:
         try:
-            resp = await client.chat.completions.create(
+            resp = await aclient.chat.completions.create(
                 model=model_slug,
                 messages=[dict(role="user", content=prompt)],
                 **{**base_args, **kwargs},
@@ -259,10 +258,12 @@ async def call_gpt(prompt, model_slug, out_type, **kwargs):
 
 def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
     async def _call_gpt_batch(prompts):
-        async_responses = [
-            call_gpt(prompt, model_slug, out_type, **kwargs) for prompt in prompts
-        ]
-        return await asyncio.gather(*async_responses)
+        async with AsyncOpenAI() as aclient:
+            tasks = [
+                call_gpt(aclient, prompt, model_slug, out_type, **kwargs)
+                for prompt in prompts
+            ]
+        return await asyncio.gather(*tasks)
 
     t1 = time.time()
     results = asyncio.run(_call_gpt_batch(prompts))

@@ -21,6 +21,8 @@ from virtualhome.simulation.environment.unity_environment import (
     UnityEnvironment as BaseUnityEnvironment,
 )
 
+from utils.utils_exception import DoubleGrabException, NoneSubgoalsException
+
 
 def get_by_agent_id(data, agent_id):
     if int(agent_id) in data:
@@ -70,6 +72,7 @@ def get_my_logger(
     name="shunchi",
     level=logging.DEBUG,
     file_level=logging.DEBUG,
+    file_extra_levels=["info", "warning", "error"],
     file_format="%(asctime)s|%(levelname)s|%(message)s",
     file_name=None,
     rich_level=logging.DEBUG,
@@ -95,15 +98,12 @@ def get_my_logger(
             file_handler.setFormatter(logging.Formatter(file_format))
             logger.addHandler(file_handler)
 
-            file_handler_info = logging.FileHandler(file_name.with_suffix(".info.log"))
-            file_handler_info.setLevel(logging.INFO)
-            file_handler_info.setFormatter(logging.Formatter(file_format))
-            logger.addHandler(file_handler_info)
-
-            file_handler_warn = logging.FileHandler(file_name.with_suffix(".warn.log"))
-            file_handler_warn.setLevel(logging.WARNING)
-            file_handler_warn.setFormatter(logging.Formatter(file_format))
-            logger.addHandler(file_handler_warn)
+            for extra_level in file_extra_levels:
+                file_name_extra = file_name.with_suffix(f".{extra_level.lower()}.log")
+                file_handler_extra = logging.FileHandler(file_name_extra)
+                file_handler_extra.setLevel(getattr(logging, extra_level.upper()))
+                file_handler_extra.setFormatter(logging.Formatter(file_format))
+                logger.addHandler(file_handler_extra)
 
     return logger
 
@@ -152,8 +152,8 @@ class Saver:
         self.log = self.logger.log
         self.exception = self.logger.exception
 
-        self.info(f"cwd: {Path.cwd()}")
-        self.info(f"logging to '{log_filename}'")
+        self.critical(f"cwd: {Path.cwd()}")
+        self.critical(f"logging to '{log_filename}'")
 
         self.pbar = Progress(
             SpinnerColumn(),
@@ -165,6 +165,12 @@ class Saver:
             "<",
             TimeRemainingColumn(),
         )
+
+    def remove_pbar_task(self, desc):
+        for task in self.pbar.tasks:
+            if task.description == desc:
+                self.pbar.remove_task(task.id)
+                break
 
     def reset_run(self, run_id):
         self.run_id = run_id
@@ -191,7 +197,7 @@ class Saver:
             self.episode_saved_info = {**other_data, **graph_data, **eval_data}
 
         else:
-            self.info(f">>>>> start: {self.current_episode} >>>>>")
+            self.critical(f">>>>> start: {self.current_episode} >>>>>")
             # ! prevent circular import
             from utils.utils_graph import EG, Goal
 
@@ -256,7 +262,7 @@ class Saver:
         metrics["helper_total_put"] = 0
         metrics["helper_correct_grab"] = 0
         metrics["helper_correct_put"] = 0
-        metrics["helper_valid_step"] = self.episode_saved_info["steps"]
+        metrics["helper_valid_step"] = self.episode_saved_info.get("steps", 1_000)
 
         gt_goals = self.episode_saved_info["gt_goals"]
         gt_grab = {k.split("_")[1] for k in gt_goals}  # class_name
@@ -319,8 +325,8 @@ class Saver:
         self.episode_saved_info.update(metrics)
         all_metrics = dict(
             metrics,
-            success=self.episode_saved_info["success"],
-            steps=self.episode_saved_info["steps"],
+            success=self.episode_saved_info.get("success", False),
+            steps=self.episode_saved_info.get("steps", 1_000),
             llm_time=self.episode_saved_info.get("llm_time", 0),
             llm_dollar=self.episode_saved_info.get("llm_dollar", 0),
             llm_input_tokens=self.episode_saved_info.get("llm_input_tokens", 0),
@@ -352,23 +358,29 @@ class Saver:
             if "plan" in info:
                 saved_info["plan"][agent_id].append(info["plan"])
             if "subgoals" in info:
-                subgoals = dedup_list(sum(info["subgoals"], []))
+                try:
+                    subgoals = dedup_list(sum(info["subgoals"], []))
+                except TypeError:
+                    self.error(f"[{steps}] {info['subgoals'] = }")
+                    raise NoneSubgoalsException
                 subgoals = [subgoal_string_to_tuple(s) for s in subgoals]
                 saved_info["subgoals"][agent_id].append(subgoals)
             if "obs" in info:
                 saved_info["obs"][agent_id].append([node["id"] for node in info["obs"]])
 
-        hands = dict()
-        for agent_id in range(len(actions)):
-            hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
-            assert len(hands_objects) <= 1
-            hands[agent_id] = hands_objects
-        saved_info["hands"].append(hands)
-
         curr_subgoals = [s[-1] for s in saved_info["subgoals"].values()]
         self.warning(f"[{steps:2d}] {'-' * 80}")
         self.warning(f" action  {format_row(actions.values(), '<50')}")
         self.warning(f"  goal   {format_row(curr_subgoals, '<50')}")
+
+        hands = dict()
+        for agent_id in range(len(actions)):
+            hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
+            if len(hands_objects) >= 2:
+                raise DoubleGrabException(f"Agent {agent_id}: {hands_objects}")
+            hands[agent_id] = hands_objects
+        saved_info["hands"].append(hands)
+
         self.warning(f"  hand   {format_row(hands.values(), '<50')}")
 
         # ^ env info

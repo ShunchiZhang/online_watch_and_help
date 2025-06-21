@@ -7,7 +7,7 @@ from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
 from envs.arena_mp2 import ArenaMP
 from envs.unity_environment import UnityEnvironment
-from utils import utils_graph, utils_logging
+from utils import utils_exception, utils_graph, utils_logging
 
 
 class Runner:
@@ -177,14 +177,28 @@ class Runner:
 
                     if not self.saver.episode_path.exists():
                         for ith_retry in range(self.args.num_retries):
-                            self.arena.reset(
-                                episode_id=episode_id,
-                                helper_goal_type=self.args.helper_goal_type,
-                                seed=len(self.agents) * ith_run * ith_retry,
-                            )
-                            success = self.arena.run()
-                            if success:
-                                break
+                            if ith_retry != 0:
+                                msg = f"retry {ith_retry}: {self.saver.current_episode}"
+                                self.saver.exception(msg)
+
+                            try:
+                                self.arena.reset(
+                                    episode_id=episode_id,
+                                    helper_goal_type=self.args.helper_goal_type,
+                                    seed=len(self.agents) * ith_run * ith_retry,
+                                )
+                                success = self.arena.run()
+                                if success:
+                                    break
+
+                            except Exception as e:
+                                if isinstance(e, utils_exception.AllHandledExceptions):
+                                    prefix = "HANDLED ERROR"
+                                else:
+                                    prefix = "UNKNOWN ERROR"
+                                msg = utils_exception.exception_info(e)
+                                self.saver.exception(f"{prefix}: {msg}")
+                                self.saver.remove_pbar_task("step")
 
                     self.saver.save_episode()
 
