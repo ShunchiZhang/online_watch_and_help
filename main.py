@@ -7,7 +7,14 @@ from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
 from envs.arena_mp2 import ArenaMP
 from envs.unity_environment import UnityEnvironment
-from utils import utils_exception, utils_graph, utils_logging
+from utils.utils_exception import (
+    CustomException,
+    exception_info,
+    is_openai_quota_exceeded,
+    is_unity_exception,
+)
+from utils.utils_graph import fix_graph, fix_multiple_location
+from utils.utils_logging import Saver
 
 
 class Runner:
@@ -48,7 +55,7 @@ class Runner:
         )
         self.args.record_dir.mkdir(parents=True, exist_ok=True)
 
-        self.saver = utils_logging.Saver(
+        self.saver = Saver(
             logger_name=self.args.logger_name,
             record_dir=self.args.record_dir,
             save_img=dict(
@@ -64,10 +71,8 @@ class Runner:
         self.args.dataset_path = Path(self.args.dataset_path)
         with self.args.dataset_path.open("rb") as f:
             env_task_set = pickle.load(f)
-        env_task_set = utils_graph.fix_graph(env_task_set)
-        env_task_set = utils_graph.fix_multiple_location(
-            env_task_set, verbose=False, drop_env=True
-        )
+        env_task_set = fix_graph(env_task_set)
+        env_task_set = fix_multiple_location(env_task_set, verbose=False, drop_env=True)
         self.env_task_set = env_task_set
 
     def _get_agents(self):
@@ -192,13 +197,18 @@ class Runner:
                                     break
 
                             except Exception as e:
-                                if isinstance(e, utils_exception.AllHandledExceptions):
+                                if is_unity_exception(e) or is_openai_quota_exceeded(e):
+                                    prefix = "CRITICAL ERROR"
+                                elif isinstance(e, CustomException):
                                     prefix = "HANDLED ERROR"
                                 else:
                                     prefix = "UNKNOWN ERROR"
-                                msg = utils_exception.exception_info(e)
+                                msg = exception_info(e)
                                 self.saver.exception(f"{prefix}: {msg}")
                                 self.saver.remove_pbar_task("step")
+
+                                if prefix.startswith("CRITICAL"):
+                                    raise e
 
                     self.saver.save_episode()
 

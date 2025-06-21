@@ -67,6 +67,12 @@ RES_PY_FORMATS = {
     logging.ERROR: "# ! %(message)s",
 }
 
+def get_existing_logger_by_prefix(prefix):
+    for name, logger in logging.root.manager.loggerDict.items():
+        if isinstance(logger, logging.Logger) and name.startswith(prefix):
+            return logger
+    return logging
+
 
 def get_my_logger(
     name="shunchi",
@@ -86,10 +92,9 @@ def get_my_logger(
     logger.setLevel(level)
     if len(logger.handlers) == 0:
         # * rich handler
-        if "res_py" not in name:
-            rich_handler = RichHandler(**rich_args)
-            rich_handler.setLevel(rich_level)
-            logger.addHandler(rich_handler)
+        rich_handler = RichHandler(**rich_args)
+        rich_handler.setLevel(rich_level)
+        logger.addHandler(rich_handler)
 
         # * file handler
         if file_name is not None:

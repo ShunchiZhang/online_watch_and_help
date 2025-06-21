@@ -1,5 +1,4 @@
 import asyncio
-import logging
 import random
 import time
 from collections import Counter
@@ -7,10 +6,11 @@ from functools import partial
 
 from json_repair import repair_json
 from openai import AsyncOpenAI, OpenAIError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from utils.utils_exception import exception_info
+from utils.utils_exception import exception_info, is_openai_quota_exceeded
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
+from utils.utils_logging import get_existing_logger_by_prefix
 
 
 class Object(BaseModel):
@@ -240,10 +240,18 @@ async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
             else:
                 obj = resp_text
             break
-        except OpenAIError as e:
-            logging.error(exception_info(e))
         except Exception as e:
-            logging.error(f"{e}: {resp_text}")
+            if is_openai_quota_exceeded(e):
+                prefix = "CRITICAL ERROR"
+            elif isinstance(e, (OpenAIError, ValidationError)):
+                prefix = "HANDLED ERROR"
+            else:
+                prefix = "UNKNOWN ERROR"
+            logger = get_existing_logger_by_prefix("main")
+            logger.error(f"{prefix}: {exception_info(e)}")
+
+            if not prefix.startswith("HANDLED"):
+                raise e
 
     cost = Counter(
         dollar=sum(
