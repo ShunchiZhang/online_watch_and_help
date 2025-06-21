@@ -6,9 +6,10 @@ from collections import Counter
 from functools import partial
 
 from json_repair import repair_json
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
+from utils.utils_exception import exception_info
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
 
 
@@ -239,6 +240,8 @@ async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
             else:
                 obj = resp_text
             break
+        except OpenAIError as e:
+            logging.error(exception_info(e))
         except Exception as e:
             logging.error(f"{e}: {resp_text}")
 
@@ -263,7 +266,7 @@ def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
                 call_gpt(aclient, prompt, model_slug, out_type, **kwargs)
                 for prompt in prompts
             ]
-        return await asyncio.gather(*tasks)
+            return await asyncio.gather(*tasks)
 
     t1 = time.time()
     results = asyncio.run(_call_gpt_batch(prompts))

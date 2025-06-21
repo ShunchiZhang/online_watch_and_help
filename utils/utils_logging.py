@@ -182,7 +182,10 @@ class Saver:
 
     def reset_episode(self, episode_id, env_task):
         self.episode_id = episode_id
+
         self.episode_dir = self.run_dir / f"episode_{episode_id:02d}"
+        self.episode_dir.mkdir(parents=True, exist_ok=True)
+
         self.episode_path = self.episode_dir / "result.json"
         self.episode_graph_path = self.episode_dir / "graph.pik"
         self.episode_eval_path = self.episode_dir / "eval.json"
