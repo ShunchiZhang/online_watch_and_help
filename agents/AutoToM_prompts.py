@@ -1,4 +1,5 @@
 import asyncio
+import atexit
 import logging
 import random
 import time
@@ -10,6 +11,18 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
+
+aclient = AsyncOpenAI()
+
+
+def _cleanup_openai():
+    try:
+        asyncio.run(aclient.close())
+    except Exception as e:
+        logging.warning(f"Failed to close AsyncOpenAI client: {e}")
+
+
+atexit.register(_cleanup_openai)
 
 
 class Object(BaseModel):
@@ -213,7 +226,7 @@ LLM_PRICING = {
 }
 
 
-async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
+async def call_gpt(prompt, model_slug, out_type, **kwargs):
     if model_slug.startswith("gpt"):
         base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
@@ -258,11 +271,7 @@ async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
 
 def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
     async def _call_gpt_batch(prompts):
-        async with AsyncOpenAI() as aclient:
-            tasks = [
-                call_gpt(aclient, prompt, model_slug, out_type, **kwargs)
-                for prompt in prompts
-            ]
+        tasks = [call_gpt(prompt, model_slug, out_type, **kwargs) for prompt in prompts]
         return await asyncio.gather(*tasks)
 
     t1 = time.time()
