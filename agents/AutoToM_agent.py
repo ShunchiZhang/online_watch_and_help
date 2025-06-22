@@ -1,15 +1,14 @@
 import copy
-from functools import partial
 
 from rich.pretty import pretty_repr
 
 from agents import AutoToM_prompts as prompts
 from agents.AutoToM import AutoToM
 from agents.MCTS_agent import MCTS_agent
-from utils import utils_environment as utils_env
 from utils.utils_graph import (
     ENV_ID_TO_TARGET_NAME_TO_ID,
     TARGET_NAME_TO_PREP,
+    Goal,
     check_progress,
     item,
 )
@@ -37,8 +36,6 @@ class GnP_agent(MCTS_agent):
 
         self.autotom.saver = self.saver
         self.autotom.reset(gt_graph, self.belief)
-
-        self.convert_goal = partial(utils_env.convert_goal, init_graph=gt_graph)
 
     @property
     def curr_verb(self):
@@ -98,7 +95,7 @@ class GnP_agent(MCTS_agent):
             # dict_keys(['plan', 'subgoals', 'belief', 'belief_room', 'obs'])
             return None, dict(plan=[None], subgoals=[[None]])
         else:
-            goal_spec = self.convert_goal(self.curr_goal)
+            goal_spec = Goal(self.curr_goal, graphs[0]).spec
 
             match self.curr_verb:
                 # * for grab, exlucde human touched objects by hacking goal_spec
@@ -109,8 +106,7 @@ class GnP_agent(MCTS_agent):
 
                 # * for put, always assure the goal is not finished by human
                 case "inside" | "on":
-                    goal_spec = self.convert_goal(self.curr_goal)
-                    satisfied, _ = utils_env.check_progress2(graphs[-1], goal_spec)
+                    satisfied, _ = Goal(self.curr_goal, graphs[-1]).check_progress()
                     _, satisfied = item(satisfied)
                     self.curr_goal[item(self.curr_goal.keys())] = len(satisfied) + 1
 

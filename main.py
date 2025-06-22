@@ -171,6 +171,7 @@ class Runner:
             for ith_run in range(self.args.num_runs):
                 self.saver.reset_run(ith_run)
                 if self.saver.run_path.exists():
+                    pbar.update(pbar_run, advance=1)
                     continue
 
                 pbar_episode = pbar.add_task("episode", total=len(episode_ids))

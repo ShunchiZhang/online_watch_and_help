@@ -114,14 +114,15 @@ class AutoToM:
         particles.normalize()
         self.saver.info(f"[new_particles]\n{pretty_repr(particles.to_natlang())}")
 
+        self.saver.warning(f"[llm.probs] {particles.probs_grab(in_log=True)}")
+        self.saver.warning(f"[llm.probs] {particles.probs_put(in_log=True)}")
+
         return particles
 
     def particle_filter(self, prompt_info, particles, human_done):
         # ^ 1. fill
         if len(particles) < self.num_particles:
             new_particles = self.new_particles(prompt_info, n=self.num_particles)
-            self.saver.warning(f"[llm.probs] {new_particles.probs_grab(in_log=True)}")
-            self.saver.warning(f"[llm.probs] {new_particles.probs_put(in_log=True)}")
             particles.fill_particles(new_particles, self.num_particles)
         self.saver.info(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
 

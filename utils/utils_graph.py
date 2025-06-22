@@ -385,13 +385,18 @@ class Subgoal:
 
 class Goal:
     def __init__(self, goal, eg):
+        # * convert `graph_dict` to `eg`
+        if isinstance(eg, dict):
+            eg = EG(eg)
+        self.eg = eg
+
         # * convert `goal` to `goal_spec`
         if isinstance(list(goal.values())[0], int):
             goal = utils_env.convert_goal(goal, eg._dictionary)
+        self.spec = goal
 
-        self.eg = eg
         self.subgoals = []
-        for subgoal_name, subgoal in goal.items():
+        for subgoal_name, subgoal in self.spec.items():
             name = subgoal_name
             cnt = subgoal["count"]
             obj_ids = subgoal["grab_obj_ids"]
@@ -409,6 +414,10 @@ class Goal:
     @property
     def natlang(self):
         return "\n".join([f"[{i}] {sg.natlang}" for i, sg in enumerate(self.subgoals)])
+
+    def check_progress(self):
+        sat, unsat = utils_env.check_progress2(self.eg._dictionary, self.spec)
+        return sat, unsat
 
 
 class EG(EnvironmentGraph):

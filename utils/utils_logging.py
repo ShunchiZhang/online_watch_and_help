@@ -22,7 +22,11 @@ from virtualhome.simulation.environment.unity_environment import (
     UnityEnvironment as BaseUnityEnvironment,
 )
 
-from utils.utils_exception import DoubleGrabException, NoneSubgoalsException
+from utils.utils_exception import (
+    CheckProgressException,
+    DoubleGrabException,
+    NoneSubgoalsException,
+)
 
 
 def get_by_agent_id(data, agent_id):
@@ -365,9 +369,32 @@ class Saver:
 
     def record_pre_step(self, steps, actions, agent_info, graph):
         # ! prevent circular import
-        from utils.utils_graph import EG, dedup_list, subgoal_string_to_tuple
+        from utils.utils_graph import EG, Goal, dedup_list, subgoal_string_to_tuple
 
         saved_info = self.episode_saved_info
+
+        # ^ log status
+        self.warning(f"[{steps:2d}] {'-' * 80}")
+
+        gt_goals = saved_info["gt_goals"]
+        sat, unsat = Goal(gt_goals, graph).check_progress()
+        for sg_type in gt_goals.keys():
+            total_num = gt_goals[sg_type]["count"]
+            sat_num = len(sat[sg_type])
+            unsat_num = unsat[sg_type]
+            if total_num != sat_num + unsat_num:
+                raise CheckProgressException(f"{total_num=}, {sat_num=}, {unsat_num=}")
+        self.warning(f"  todo   {unsat}")
+
+        hands = dict()
+        eg = EG(graph)
+        for agent_id in range(len(actions)):
+            hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
+            if len(hands_objects) >= 2:
+                raise DoubleGrabException(f"Agent {agent_id}: {hands_objects}")
+            hands[agent_id] = hands_objects
+        saved_info["hands"].append(hands)
+        self.warning(f"  hand   {format_row(hands.values(), '<50')}")
 
         # ^ agent info
         for agent_id, info in agent_info.items():
@@ -394,21 +421,10 @@ class Saver:
             if "obs" in info:
                 saved_info["obs"][agent_id].append([node["id"] for node in info["obs"]])
 
+        # ^ next action and plan
         curr_subgoals = [s[-1] for s in saved_info["subgoals"].values()]
-        self.warning(f"[{steps:2d}] {'-' * 80}")
         self.warning(f" action  {format_row(actions.values(), '<50')}")
-        self.warning(f"  goal   {format_row(curr_subgoals, '<50')}")
-
-        hands = dict()
-        eg = EG(graph)
-        for agent_id in range(len(actions)):
-            hands_objects = [(n.id, n.class_name) for n in eg[agent_id + 1].holds()]
-            if len(hands_objects) >= 2:
-                raise DoubleGrabException(f"Agent {agent_id}: {hands_objects}")
-            hands[agent_id] = hands_objects
-        saved_info["hands"].append(hands)
-
-        self.warning(f"  hand   {format_row(hands.values(), '<50')}")
+        self.warning(f"  plan   {format_row(curr_subgoals, '<50')}")
 
         self.episode_saved_info = saved_info
 
