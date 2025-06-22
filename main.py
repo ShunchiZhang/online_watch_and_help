@@ -1,7 +1,7 @@
 import pickle
 from pathlib import Path
 
-from agents.AutoToM_agent import GnP_agent
+from agents.GnP_agent import GnP_agent
 from agents.MCTS_agent import MCTS_agent
 from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
