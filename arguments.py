@@ -194,7 +194,7 @@ def get_args():
     parser.add_argument(
         "--display",
         type=str,
-        default="2",
+        default="0",
     )
     parser.add_argument(
         "--use_editor",

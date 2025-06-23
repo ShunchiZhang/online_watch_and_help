@@ -151,7 +151,7 @@ class Runner:
             use_editor=self.args.use_editor,
             executable_args=dict(
                 file_name=self.args.executable_file,
-                x_display="0",
+                x_display=self.args.display,
                 no_graphics=False,
                 timeout_wait=30,
             ),
