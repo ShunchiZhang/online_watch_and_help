@@ -5,7 +5,7 @@ from agents.GnP_agent import GnP_agent
 from agents.MCTS_agent import MCTS_agent
 from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
-from envs.arena_mp2 import ArenaMP
+from envs.arena import Arena
 from envs.unity_environment import UnityEnvironment
 from utils.utils_exception import (
     CustomException,
@@ -24,7 +24,7 @@ class Runner:
         self._get_saver()
         self._get_agents()
         self._get_env()
-        self.arena = ArenaMP(self.env, self.agents, self.saver)
+        self.arena = Arena(self.env, self.agents, self.saver)
 
     def _get_saver(self):
         if self.args.num_agents == 1:

@@ -2,8 +2,7 @@ import atexit
 from collections import Counter
 
 
-# @ray.remote
-class ArenaMP(object):
+class Arena(object):
     def __init__(self, env, agents, saver):
         self.env = env
         self.agents = agents
