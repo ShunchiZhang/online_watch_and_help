@@ -1,12 +1,35 @@
 import time
+import traceback
+from datetime import datetime
+from pathlib import Path
 
 import litellm
 import openai
 from json_repair import repair_json
 
+"""
+Use CustomError to abort the program.
+Use CustomException to handle the error.
+
+`logger.exception` is equivalent to `logger.error(msg, exc_info=True)`,
+which will record the traceback if called in a `try-except` block.
+"""
+
 
 def exception_info(e: Exception):
     return f"{type(e).__module__}.{type(e).__name__}: {e}"
+
+
+def exception_traceback(e: Exception):
+    tb = "".join(traceback.TracebackException.from_exception(e).format())
+    curr_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    tb_dir = Path() / "logs" / "tracebacks"
+    tb_dir.mkdir(parents=True, exist_ok=True)
+
+    tb_file = tb_dir / f"{curr_time}.log"
+    tb_file.write_text(tb)
+
+    return f"{exception_info(e)}\nDetailed Traceback: '{tb_file.resolve()}'"
 
 
 # ! Exception
@@ -41,16 +64,19 @@ class QuotaExceededError(CustomError): ...
 class UnknownError(CustomError): ...
 
 
-def handle(e, logger, allow=None):
-    info = exception_info(e)
-    if isinstance(e, CustomError):
-        logger.error(info)
-        raise e
-    elif isinstance(e, CustomException) or (allow and isinstance(e, allow)):
-        logger.exception(info)
+def handle(e, logger, allow=None, exc_info=False):
+    if isinstance(e, CustomException) or (allow and isinstance(e, allow)):
+        logger.exception(exception_info(e))
     else:
-        logger.error(info)
-        raise UnknownError
+        if exc_info:
+            logger.error(exception_traceback(e))
+        else:
+            logger.error(exception_info(e))
+
+        if isinstance(e, CustomError):
+            raise e
+        else:
+            raise UnknownError from e
 
 
 def check_unity_error(e):

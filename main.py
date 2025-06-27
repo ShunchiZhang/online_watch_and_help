@@ -178,7 +178,7 @@ class Runner:
                         for ith_retry in range(self.args.num_retries):
                             if ith_retry != 0:
                                 msg = f"retry {ith_retry}: {self.saver.current_episode}"
-                                self.saver.exception(msg)
+                                self.saver.warning(msg)
 
                             try:
                                 self.arena.reset(
@@ -192,7 +192,7 @@ class Runner:
 
                             except Exception as e:
                                 e = check_unity_error(e)
-                                handle(e, self.saver)
+                                handle(e, self.saver, exc_info=True)
                                 self.saver.remove_pbar_task("step")
 
                     self.saver.save_episode()
