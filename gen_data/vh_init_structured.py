@@ -9,8 +9,6 @@ from init_goal_setter.init_goal_base import SetInitialGoal
 from init_goal_setter.tasks_structured import Task
 from virtualhome.simulation.unity_simulator import comm_unity
 
-from utils import utils_goals
-
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--num-per-apartment", type=int, default=2, help="Maximum #episodes/apartment"
@@ -59,6 +57,22 @@ def add_noise_initgraph(init_graph, original_graph, random_obj):
             cont += 1
         # ipdb.set_trace()
     return init_graph
+
+
+def convert_goal_spec(goal):
+    """
+    Convert the task goal into a format interpreted by the planner and model
+    """
+    goals = {}
+    for key_count in goal:
+        key = list(key_count.keys())[0]
+        count = key_count[key]
+        elements = key.split("_")
+
+        predicate = "{}_{}_{}".format(elements[2], elements[1], elements[3])
+        goals[predicate] = count
+
+    return goals
 
 
 if __name__ == "__main__":
@@ -384,11 +398,11 @@ if __name__ == "__main__":
         init_graph = problem_setup["init_graph"]
         goal = problem_setup["goal"][task_name_red]
 
-        goals = utils_goals.convert_goal_spec(goal)
+        goals = convert_goal_spec(goal)
 
         goal_noise = problem_setup["goal"]["noise"]
 
-        goals_noise = utils_goals.convert_goal_spec(goal_noise)
+        goals_noise = convert_goal_spec(goal_noise)
         print("env_id:", env_id)
         print("task_name:", task_name)
         print("goals:", goals)
