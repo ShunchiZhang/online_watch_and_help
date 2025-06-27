@@ -1,12 +1,21 @@
-/z
-
+# MacOS
 .DS_Store
 __MACOSX/
 
+# Python
 __pycache__/
+
+# VirtualHome
+port_*.txt
+
+# Common
+/logs
+archive/
+*.pdf
 .env
 
-logs/
-*.pik
-port_*.txt
-*.pdf
+# Dirty
+/z
+/agents/NOPA_agent.py
+/agents/prompt_backup
+/tools/isort.py
