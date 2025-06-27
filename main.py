@@ -7,12 +7,7 @@ from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
 from envs.arena import Arena
 from envs.unity_environment import UnityEnvironment
-from utils.utils_exception import (
-    CustomException,
-    exception_info,
-    is_quota_exceeded,
-    is_unity_exception,
-)
+from utils.utils_exception import check_unity_error, handle
 from utils.utils_graph import fix_graph, fix_multiple_location
 from utils.utils_logging import Saver
 
@@ -196,18 +191,9 @@ class Runner:
                                     break
 
                             except Exception as e:
-                                if is_unity_exception(e) or is_quota_exceeded(e):
-                                    prefix = "CRITICAL ERROR"
-                                elif isinstance(e, CustomException):
-                                    prefix = "HANDLED ERROR"
-                                else:
-                                    prefix = "UNKNOWN ERROR"
-                                msg = exception_info(e)
-                                self.saver.exception(f"{prefix}: {msg}")
+                                e = check_unity_error(e)
+                                handle(e, self.saver)
                                 self.saver.remove_pbar_task("step")
-
-                                if prefix.startswith("CRITICAL"):
-                                    raise e
 
                     self.saver.save_episode()
                     pbar.update(pbar_episode, advance=1)

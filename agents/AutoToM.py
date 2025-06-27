@@ -3,7 +3,7 @@ import copy
 from rich.pretty import pretty_repr
 
 from agents import AutoToM_prompts as prompts
-from utils.utils_exception import exception_info
+from utils.utils_exception import ParticleLengthException, handle
 from utils.utils_graph import EG, check_progress, item
 
 
@@ -106,11 +106,12 @@ class AutoToM:
                 self.saver.record_cost(cost, "new_particles")
                 particles = item(particles)
 
-                assert len(particles) == n, f"{len(particles) = } != {n}"
+                if len(particles) != n:
+                    raise ParticleLengthException(f"{len(particles) = } != {n}")
                 break
 
             except Exception as e:
-                self.saver.error(exception_info(e))
+                handle(e, self.saver)
 
         particles.normalize()
         self.saver.info(f"[new_particles]\n{pretty_repr(particles.to_natlang())}")

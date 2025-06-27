@@ -41,3 +41,12 @@ cd online_watch_and_help
 bash scripts/open_log.sh 0 01 result
 bash scripts/open_log.sh 0 01 eval
 ```
+
+# Inference Time
+
+```sh
+# model="GnP_gemini-2.0-flash-thinking-exp-01-21"
+model="GnP_o3-mini"
+log_file=logs/2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20/$model/main.log
+grep -E 'new_particles.*time' $log_file > logs/time
+```

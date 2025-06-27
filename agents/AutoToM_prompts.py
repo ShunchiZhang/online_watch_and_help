@@ -9,7 +9,7 @@ from litellm import acompletion
 from openai import OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 
-from utils.utils_exception import exception_info, is_quota_exceeded
+from utils.utils_exception import check_quota_exceeded, handle
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
 from utils.utils_logging import get_existing_logger_by_prefix
 
@@ -222,6 +222,8 @@ LLM_PRICING = {
     "gemini/gemini-2.5-flash": dict(input=0.3e-6, output=2.5e-6),
     # proposal: ~5s
     "gemini/gemini-2.5-flash-lite-preview-06-17": dict(input=0.1e-6, output=0.4e-6),
+    # proposal: ~50s (ada-think)
+    "gemini/gemini-2.0-flash-thinking-exp-01-21": dict(input=0.1e-6, output=0.4e-6),
 }
 
 
@@ -229,16 +231,18 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
     if model_slug.startswith("gpt"):
         base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
-        base_args = dict(reasoning_effort="high")
-    elif model_slug.startswith("gemini/gemini-2.5-"):
+        base_args = dict(reasoning_effort="medium")
+    elif model_slug.startswith("gemini/"):
         # https://docs.litellm.ai/docs/providers/gemini
         # https://ai.google.dev/gemini-api/docs/thinking
         # https://ai.google.dev/gemini-api/docs/openai
+        # budget_tokens=-1 ==> adaptive
+        # budget_tokens=0  ==> disabled
         if model_slug.startswith("gemini/gemini-2.5-flash-lite"):
             base_args = dict()  # thinking not supported
+        elif model_slug.startswith("gemini/gemini-2.0-flash-thinking"):
+            base_args = dict()  # thinking params not adjustable
         else:
-            # budget_tokens=-1 ==> adaptive
-            # budget_tokens=0  ==> disabled
             base_args = dict(thinking=dict(type="enabled", budget_tokens=0))
     else:
         raise ValueError(f"Invalid model_slug: {model_slug}")
@@ -263,17 +267,9 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
                 obj = resp_text
             break
         except Exception as e:
-            if is_quota_exceeded(e):
-                prefix = "CRITICAL ERROR"
-            elif isinstance(e, (OpenAIError, ValidationError)):
-                prefix = "HANDLED ERROR"
-            else:
-                prefix = "UNKNOWN ERROR"
+            e = check_quota_exceeded(e)
             logger = get_existing_logger_by_prefix("main")  # multi-process compatible
-            logger.error(f"{prefix}: {exception_info(e)}")
-
-            if not prefix.startswith("HANDLED"):
-                raise e
+            handle(e, logger, allow=(OpenAIError, ValidationError))
 
     cost = Counter(
         dollar=sum(

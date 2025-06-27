@@ -62,6 +62,7 @@ def add_helper_args(parser):
             "gpt-4o-mini",
             "gemini/gemini-2.5-flash",
             "gemini/gemini-2.5-flash-lite-preview-06-17",
+            "gemini/gemini-2.0-flash-thinking-exp-01-21",
         ],
         help="The name of the LLM to use in AutoToM",
     )
