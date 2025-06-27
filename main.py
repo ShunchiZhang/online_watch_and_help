@@ -10,7 +10,7 @@ from envs.unity_environment import UnityEnvironment
 from utils.utils_exception import (
     CustomException,
     exception_info,
-    is_openai_quota_exceeded,
+    is_quota_exceeded,
     is_unity_exception,
 )
 from utils.utils_graph import fix_graph, fix_multiple_location
@@ -40,10 +40,11 @@ class Runner:
                 else:
                     raise ValueError(f"{self.args.helper_goal_type = }")
             elif self.args.helper_class in ["GnP", "NOPA"]:
+                llm_name = self.args.autotom_llm_name.split("/")[-1]
                 if self.args.autotom_method == "autotom":
-                    method_suffix = "autotom"
+                    method_suffix = f"autotom_{llm_name}"
                 elif self.args.autotom_method == "llm":
-                    method_suffix = self.args.autotom_llm_name
+                    method_suffix = llm_name
                 else:
                     raise ValueError(f"{self.args.autotom_method = }")
             else:
@@ -195,7 +196,7 @@ class Runner:
                                     break
 
                             except Exception as e:
-                                if is_unity_exception(e) or is_openai_quota_exceeded(e):
+                                if is_unity_exception(e) or is_quota_exceeded(e):
                                     prefix = "CRITICAL ERROR"
                                 elif isinstance(e, CustomException):
                                     prefix = "HANDLED ERROR"

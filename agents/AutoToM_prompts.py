@@ -5,10 +5,11 @@ from collections import Counter
 from functools import partial
 
 from json_repair import repair_json
-from openai import AsyncOpenAI, OpenAIError
+from litellm import acompletion
+from openai import OpenAIError
 from pydantic import BaseModel, Field, ValidationError
 
-from utils.utils_exception import exception_info, is_openai_quota_exceeded
+from utils.utils_exception import exception_info, is_quota_exceeded
 from utils.utils_graph import OBJECT_NAMES, TARGET_NAMES, TASK_NAMES
 from utils.utils_logging import get_existing_logger_by_prefix
 
@@ -210,23 +211,42 @@ forward_likelihood = partial(
 
 LLM_PRICING = {
     # https://platform.openai.com/docs/pricing
+    # proposal: ~20s, forward: ~10s
     "gpt-4o": dict(input=2.50e-6, output=10.00e-6),
     "gpt-4o-mini": dict(input=0.15e-6, output=0.60e-6),
+    # proposal: ~100s
     "o3-mini": dict(input=1.10e-6, output=4.40e-6),
+    # https://ai.google.dev/gemini-api/docs/pricing
+    "gemini/gemini-2.5-pro": dict(input=1.25e-6, output=10e-6),
+    # proposal: ~50s (ada-think), ~10s (no-think)
+    "gemini/gemini-2.5-flash": dict(input=0.3e-6, output=2.5e-6),
+    # proposal: ~5s
+    "gemini/gemini-2.5-flash-lite-preview-06-17": dict(input=0.1e-6, output=0.4e-6),
 }
 
 
-async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
+async def call_llm(prompt, model_slug, out_type, **kwargs):
     if model_slug.startswith("gpt"):
         base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
         base_args = dict(reasoning_effort="high")
+    elif model_slug.startswith("gemini/gemini-2.5-"):
+        # https://docs.litellm.ai/docs/providers/gemini
+        # https://ai.google.dev/gemini-api/docs/thinking
+        # https://ai.google.dev/gemini-api/docs/openai
+        if model_slug.startswith("gemini/gemini-2.5-flash-lite"):
+            base_args = dict()  # thinking not supported
+        else:
+            # budget_tokens=-1 ==> adaptive
+            # budget_tokens=0  ==> disabled
+            base_args = dict(thinking=dict(type="enabled", budget_tokens=0))
     else:
         raise ValueError(f"Invalid model_slug: {model_slug}")
 
     while True:
         try:
-            resp = await aclient.chat.completions.create(
+            # https://github.com/BerriAI/litellm/issues/11657
+            resp = await acompletion(
                 model=model_slug,
                 messages=[dict(role="user", content=prompt)],
                 **{**base_args, **kwargs},
@@ -243,13 +263,13 @@ async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
                 obj = resp_text
             break
         except Exception as e:
-            if is_openai_quota_exceeded(e):
+            if is_quota_exceeded(e):
                 prefix = "CRITICAL ERROR"
             elif isinstance(e, (OpenAIError, ValidationError)):
                 prefix = "HANDLED ERROR"
             else:
                 prefix = "UNKNOWN ERROR"
-            logger = get_existing_logger_by_prefix("main")
+            logger = get_existing_logger_by_prefix("main")  # multi-process compatible
             logger.error(f"{prefix}: {exception_info(e)}")
 
             if not prefix.startswith("HANDLED"):
@@ -269,17 +289,13 @@ async def call_gpt(aclient, prompt, model_slug, out_type, **kwargs):
     return obj, cost
 
 
-def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
-    async def _call_gpt_batch(prompts):
-        async with AsyncOpenAI() as aclient:
-            tasks = [
-                call_gpt(aclient, prompt, model_slug, out_type, **kwargs)
-                for prompt in prompts
-            ]
-            return await asyncio.gather(*tasks)
+def call_llm_batch(prompts, model_slug, out_type, **kwargs):
+    async def _call_llm_batch(prompts):
+        tasks = [call_llm(prompt, model_slug, out_type, **kwargs) for prompt in prompts]
+        return await asyncio.gather(*tasks)
 
     t1 = time.time()
-    results = asyncio.run(_call_gpt_batch(prompts))
+    results = asyncio.run(_call_llm_batch(prompts))
     t2 = time.time()
 
     objs, costs = zip(*results)
@@ -289,7 +305,7 @@ def call_gpt_batch(prompts, model_slug, out_type, **kwargs):
 
 
 if __name__ == "__main__":
-    objs, cost = call_gpt_batch(
+    objs, cost = call_llm_batch(
         [
             "19*19=?",
             "18*18=?",
@@ -301,7 +317,8 @@ if __name__ == "__main__":
             "12*12=?",
             "11*11=?",
         ],
-        model_slug="gpt-4o-mini",
+        # model_slug="gpt-4o-mini",
+        model_slug="gemini/gemini-2.5-flash",
         out_type=None,
     )
     print(cost)

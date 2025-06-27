@@ -2,6 +2,7 @@ git+https://github.com/ShunchiZhang/virtualhome.git@wah-fix
 anytree==2.13.0
 ffmpeg-python==0.2.0
 json_repair==0.46.0
+litellm==1.73.2
 matplotlib==3.10.1
 numpy==2.2.4
 openai==1.75.0

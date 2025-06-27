@@ -56,7 +56,13 @@ def add_helper_args(parser):
         "--autotom_llm_name",
         type=str,
         default="gpt-4o",
-        choices=["gpt-4o", "o3-mini", "gpt-4o-mini"],
+        choices=[
+            "gpt-4o",
+            "o3-mini",
+            "gpt-4o-mini",
+            "gemini/gemini-2.5-flash",
+            "gemini/gemini-2.5-flash-lite-preview-06-17",
+        ],
         help="The name of the LLM to use in AutoToM",
     )
     parser.add_argument(

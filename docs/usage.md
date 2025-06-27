@@ -2,6 +2,8 @@
 
 > For VSCode/Cursor users, use [.vscode/launch.json](/.vscode/launch.json) to debug.
 
+create `.env` and set `OPENAI_API_KEY` and `GEMINI_API_KEY`
+
 ```sh
 cd online_watch_and_help
 uv-activate vhome

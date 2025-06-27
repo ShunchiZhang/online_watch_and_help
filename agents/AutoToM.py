@@ -3,6 +3,7 @@ import copy
 from rich.pretty import pretty_repr
 
 from agents import AutoToM_prompts as prompts
+from utils.utils_exception import exception_info
 from utils.utils_graph import EG, check_progress, item
 
 
@@ -96,7 +97,7 @@ class AutoToM:
 
         while True:
             try:
-                particles, cost = prompts.call_gpt_batch(
+                particles, cost = prompts.call_llm_batch(
                     [prompt],
                     self.llm_name,
                     out_type=prompts.GoalParticles,
@@ -109,7 +110,7 @@ class AutoToM:
                 break
 
             except Exception as e:
-                self.saver.error(str(e))
+                self.saver.error(exception_info(e))
 
         particles.normalize()
         self.saver.info(f"[new_particles]\n{pretty_repr(particles.to_natlang())}")
@@ -146,7 +147,7 @@ class AutoToM:
 
         goals = [particle.to_natlang() for particle in forward_particles.particles]
         batch = [prompts.forward_likelihood(**prompt_info, goal=goal) for goal in goals]
-        probs, cost = prompts.call_gpt_batch(
+        probs, cost = prompts.call_llm_batch(
             batch, self.llm_name, out_type=prompts.Likelihood
         )
         self.saver.record_cost(cost, "forward_likelihood")
