@@ -352,8 +352,6 @@ class Saver:
                 case None:
                     metrics["helper"]["valid_step"] -= 1
 
-        # * as helper won't grab human-touched objects, it's human planner bug
-        metrics["helper"]["valid_help"] = max(0, metrics["helper"]["valid_help"])
         saved_info.update(metrics)
         self.episode_saved_info = saved_info
 

@@ -1,8 +1,12 @@
 /z
 
+.DS_Store
+__MACOSX/
+
 __pycache__/
 .env
 
 logs/
 *.pik
 port_*.txt
+*.pdf
