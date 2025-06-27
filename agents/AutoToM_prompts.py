@@ -61,6 +61,8 @@ class GoalParticles(BaseModel):
 
     def normalize(self):
         partition = sum(particle.p for particle in self.particles)
+        if partition == 0:
+            return
         for particle in self.particles:
             particle.p /= partition
 
