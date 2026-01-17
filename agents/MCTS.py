@@ -840,7 +840,21 @@ class MCTS:
                 # # print('*******')
 
                 if not success:
-                    print("Failure", actions)
+                    from utils.utils_graph import EG, parse_action
+
+                    print("Failure", actions, action_str)
+
+                    eg = EG(next_vh_state.to_dict())
+                    for action in ["[open] <> (1)"] + actions:
+                        item_id = int(parse_action(action)[-1])
+                        item = eg[item_id]
+                        print(item)
+                        print(item.get_location())
+
+                    err_msg = self.env.executor_n[
+                        self.char_index
+                    ].info.get_error_string()
+                    print(f"Execution Error: {err_msg}")
                     raise AssertionError
             # if 'put' in actions:
             #      print("CLOSE:", [edge for edge in next_state_dict['edges'] if edge['to_id'] == 232 and edge['from_id'] == 1])
