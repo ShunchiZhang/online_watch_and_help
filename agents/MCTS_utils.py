@@ -66,6 +66,10 @@ def find_heuristic(
             "OPEN" not in id2node[container]["states"]
         ):
             if id2node[container]["class_name"] != "character":
+                action_list = [
+                    ("walk", (id2node[target]["class_name"], target), None)
+                ] + action_list
+                cost_list = [0.5] + cost_list
                 action = ("open", (id2node[container]["class_name"], container), None)
                 action_list = [action] + action_list
                 cost_list = [0.05] + cost_list
