@@ -12,7 +12,8 @@ class AutoToM:
         self,
         filter_thres,
         num_particles,
-        llm_name,
+        proposer_name,
+        estimator_name,
         method,
     ):
         """
@@ -21,7 +22,8 @@ class AutoToM:
         `llm_name`: name of the llm to use, e.g., "gpt-4o" or "o3-mini"
         `method`: method to use, e.g., "autotom" or "llm"
         """
-        self.llm_name = llm_name
+        self.proposer_name = proposer_name
+        self.estimator_name = estimator_name
         self.filter_thres = filter_thres
         self.num_particles = num_particles
         self.method = method
@@ -97,12 +99,13 @@ class AutoToM:
 
         while True:
             try:
-                particles, cost = prompts.call_llm_batch(
+                particles, io, cost = prompts.call_llm_batch(
                     [prompt],
-                    self.llm_name,
+                    self.proposer_name,
                     out_type=prompts.GoalParticles,
                     # temperature=1.0,
                 )
+                self.saver.record_io(io)
                 self.saver.record_cost(cost, "new_particles")
                 particles = item(particles)
 
@@ -148,8 +151,8 @@ class AutoToM:
 
         goals = [particle.to_natlang() for particle in forward_particles.particles]
         batch = [prompts.forward_likelihood(**prompt_info, goal=goal) for goal in goals]
-        probs, cost = prompts.call_llm_batch(
-            batch, self.llm_name, out_type=prompts.Likelihood
+        probs, _, cost = prompts.call_llm_batch(
+            batch, self.estimator_name, out_type=prompts.Likelihood
         )
         self.saver.record_cost(cost, "forward_likelihood")
         probs = [p.likelihood for p in probs]

@@ -30,6 +30,7 @@ class Arena(object):
             "hands": [],
             "executed": [],
             "cost": Counter(),
+            "io": [],
         }
 
     def reset(self, episode_id, helper_goal_type, seed):

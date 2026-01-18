@@ -201,6 +201,7 @@ class Saver:
         self.episode_path = self.episode_dir / "result.json"
         self.episode_graph_path = self.episode_dir / "graph.pik"
         self.episode_eval_path = self.episode_dir / "eval.json"
+        self.episode_io_path = self.episode_dir / "io.json"
 
         if self.episode_path.exists():
             with self.episode_path.open("r") as f:
@@ -209,7 +210,14 @@ class Saver:
                 graph_data = pickle.load(f)
             with self.episode_eval_path.open("r") as f:
                 eval_data = json.load(f)
-            self.episode_saved_info = {**other_data, **graph_data, **eval_data}
+            with self.episode_io_path.open("r") as f:
+                io_data = json.load(f)
+            self.episode_saved_info = {
+                **other_data,
+                **graph_data,
+                **eval_data,
+                **io_data,
+            }
             self.upgrade_saved_info()
 
         else:
@@ -265,6 +273,7 @@ class Saver:
             "cost",
             "key_actions",
         }
+        io_keys = {"io"}
 
         graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
         with self.episode_graph_path.open("wb") as f:
@@ -274,6 +283,11 @@ class Saver:
         eval_data = {k: saved_info[k] for k in eval_keys if k in saved_info}
         with self.episode_eval_path.open("w") as f:
             json.dump(eval_data, f, ensure_ascii=False)
+        prettier(self.episode_eval_path)
+
+        io_data = {k: saved_info[k] for k in io_keys if k in saved_info}
+        with self.episode_io_path.open("w") as f:
+            json.dump(io_data, f, ensure_ascii=False)
         prettier(self.episode_eval_path)
 
         other_data = {
@@ -465,6 +479,9 @@ class Saver:
         if name is not None:
             self.debug(f"[{name}] {cost}")
         self.episode_saved_info["cost"] += cost
+
+    def record_io(self, io):
+        self.episode_saved_info["io"].append(io)
 
     def save_run(self):
         failure_list = []

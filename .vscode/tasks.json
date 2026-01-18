@@ -10,6 +10,11 @@
     },
     {
       "type": "shell",
+      "label": "clear :8488",
+      "command": "lsof -i :8488 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
       "label": "kill all",
       "command": "pgrep -fl VirtualHome"
       // "command": "pkill -f VirtualHome"
