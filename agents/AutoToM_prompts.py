@@ -244,6 +244,15 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
             base_args = dict()  # thinking params not adjustable
         else:
             base_args = dict(thinking=dict(type="enabled", budget_tokens=0))
+    elif model_slug.startswith("hosted_vllm/"):
+        # https://docs.litellm.ai/docs/providers/vllm
+        base_args = dict(temperature=0, api_key="EMPTY")
+        if model_slug.startswith("hosted_vllm/qwen3-235b-fp8"):
+            base_args["base_url"] = "http://localhost:6661/v1"
+        elif model_slug.startswith("hosted_vllm/qwen3-4b"):
+            base_args["base_url"] = "http://localhost:6662/v1"
+        else:
+            raise ValueError(f"Invalid model_slug: {model_slug}")
     else:
         raise ValueError(f"Invalid model_slug: {model_slug}")
 
@@ -271,18 +280,20 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
             logger = get_existing_logger_by_prefix("main")  # multi-process compatible
             handle(e, logger, allow=(OpenAIError, ValidationError))
 
+    io = dict(input=prompt, output=resp_text)
+    pricing = LLM_PRICING.get(model_slug, dict())
     cost = Counter(
         dollar=sum(
             [
-                resp.usage.prompt_tokens * LLM_PRICING[model_slug]["input"],
-                resp.usage.completion_tokens * LLM_PRICING[model_slug]["output"],
+                resp.usage.prompt_tokens * pricing.get("input", 0),
+                resp.usage.completion_tokens * pricing.get("output", 0),
             ]
         ),
         input_tokens=resp.usage.prompt_tokens,
         output_tokens=resp.usage.completion_tokens,
     )
 
-    return obj, cost
+    return obj, io, cost
 
 
 def call_llm_batch(prompts, model_slug, out_type, **kwargs):
@@ -294,10 +305,10 @@ def call_llm_batch(prompts, model_slug, out_type, **kwargs):
     results = asyncio.run(_call_llm_batch(prompts))
     t2 = time.time()
 
-    objs, costs = zip(*results)
+    objs, ios, costs = zip(*results)
     total_cost = sum(costs, Counter(time=t2 - t1))
 
-    return objs, total_cost
+    return objs, ios, total_cost
 
 
 if __name__ == "__main__":

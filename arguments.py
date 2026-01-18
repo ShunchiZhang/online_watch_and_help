@@ -53,9 +53,10 @@ def add_helper_args(parser):
         help="The number of particles to use in AutoToM",
     )
     parser.add_argument(
-        "--autotom_llm_name",
+        "--autotom_proposer_name",
         type=str,
-        default="gpt-4o",
+        # default="gpt-4o",
+        required=True,
         choices=[
             "gpt-4o",
             "o3-mini",
@@ -63,6 +64,25 @@ def add_helper_args(parser):
             "gemini/gemini-2.5-flash",
             "gemini/gemini-2.5-flash-lite-preview-06-17",
             "gemini/gemini-2.0-flash-thinking-exp-01-21",
+            "hosted_vllm/qwen3-4b",
+            "hosted_vllm/qwen3-235b-fp8",
+        ],
+        help="The name of the LLM to use in AutoToM",
+    )
+    parser.add_argument(
+        "--autotom_estimator_name",
+        type=str,
+        # default="gpt-4o",
+        required=True,
+        choices=[
+            "gpt-4o",
+            "o3-mini",
+            "gpt-4o-mini",
+            "gemini/gemini-2.5-flash",
+            "gemini/gemini-2.5-flash-lite-preview-06-17",
+            "gemini/gemini-2.0-flash-thinking-exp-01-21",
+            # "hosted_vllm/qwen3-4b",
+            "hosted_vllm/qwen3-235b-fp8",
         ],
         help="The name of the LLM to use in AutoToM",
     )
