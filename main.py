@@ -2,8 +2,8 @@ import pickle
 from pathlib import Path
 
 from agents.GnP_agent import GnP_agent
+from agents.Human_agent import Human_agent
 from agents.MCTS_agent import MCTS_agent
-from agents.NOPA_agent import NOPA_agent
 from arguments import get_args
 from envs.arena import Arena
 from envs.unity_environment import UnityEnvironment
@@ -34,16 +34,23 @@ class Runner:
                     method_suffix = "random_goal"
                 else:
                     raise ValueError(f"{self.args.helper_goal_type = }")
-            elif self.args.helper_class in ["GnP", "NOPA"]:
-                llm_name = self.args.autotom_llm_name.split("/")[-1]
+
+            elif self.args.helper_class == "GnP":
+                proposer_name = self.args.autotom_proposer_name.split("/")[-1]
                 if self.args.autotom_method == "autotom":
-                    method_suffix = f"autotom_{llm_name}"
+                    estimator_name = self.args.autotom_estimator_name.split("/")[-1]
+                    method_suffix = f"autotom_Q={proposer_name}_P={estimator_name}"
                 elif self.args.autotom_method == "llm":
-                    method_suffix = llm_name
+                    method_suffix = proposer_name
                 else:
                     raise ValueError(f"{self.args.autotom_method = }")
+
+            elif self.args.helper_class == "Human":
+                method_suffix = "human"
+
             else:
                 raise ValueError(f"{self.args.helper_class = }")
+
             method = f"{self.args.helper_class}_{method_suffix}"
 
         self.args.record_dir = (
@@ -114,25 +121,25 @@ class Runner:
             if i == 0 or self.args.helper_class == "MCTS":
                 self.agents.append(MCTS_agent(**args_agent))
             else:
-                args_agent["autotom_args"] = dict(
-                    filter_thres=self.args.autotom_thres_filter,
-                    num_particles=self.args.autotom_num_particles,
-                    llm_name=self.args.autotom_llm_name,
-                    method=self.args.autotom_method,
-                )
                 match self.args.helper_class:
                     case "GnP":
+                        args_agent["autotom_args"] = dict(
+                            filter_thres=self.args.autotom_thres_filter,
+                            num_particles=self.args.autotom_num_particles,
+                            proposer_name=self.args.autotom_proposer_name,
+                            estimator_name=self.args.autotom_estimator_name,
+                            method=self.args.autotom_method,
+                            hide_helper_history=self.args.autotom_hide_helper_history,
+                            disable_estimation=self.args.autotom_disable_estimation,
+                        )
                         args_agent["agent_args"] = dict(
                             thres_grab=self.args.gnp_thres_grab,
                             thres_put=self.args.gnp_thres_put,
                             start_at_put=self.args.gnp_start_at_put,
                         )
                         self.agents.append(GnP_agent(**args_agent))
-                    case "NOPA":
-                        args_agent["agent_args"] = dict(
-                            thres_exec=self.args.nopa_thres_exec,
-                        )
-                        self.agents.append(NOPA_agent(**args_agent))
+                    case "Human":
+                        self.agents.append(Human_agent(**args_agent))
                     case _:
                         raise ValueError(f"Invalid config: {self.args.helper_class}")
 

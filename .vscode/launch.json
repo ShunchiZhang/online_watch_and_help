@@ -18,16 +18,16 @@
       },
       "args": [
         "--executable_file=../virtualhome/unity/macos_exec.2.2.4.app",
-        // "--dataset_path=./dataset/2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
-        "--dataset_path=./dataset/gnp_single_item/all_tasks.pik",
+        // "--dataset_path=./dataset/train-2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
+        "--dataset_path=./dataset/test-2_per_apt-task_no_tv-apts_3,6.pik",
         "--num_agents=1",
-        "--base_port=8088",
-        "--num_runs=1",
-        "--obs_type=partial"
-        // "--debug",
+        "--base_port=18488",
+        "--num_runs=3",
+        // "--obs_type=partial"
+        "--debug"
         // "--episode_ids=0"
       ],
-      "preLaunchTask": "clear :8088"
+      "preLaunchTask": "clear :18488"
     },
     {
       "name": "main | human-ai",
@@ -42,33 +42,97 @@
         "PYTHONPATH": "${workspaceFolder}"
       },
       "args": [
+        "--helper_class=GnP",
+        "--autotom_hide_helper_history",
+        "--gnp_start_at_put",
+        // * visual
+        // "--save_camera_views=all",
+        // "--image_width=960",
+        // "--image_height=720",
         "--executable_file=../virtualhome/unity/macos_exec.2.2.4.app",
-        "--dataset_path=./dataset/2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
-        // "--dataset_path=./dataset/2_per_apt-task_all-apts_3,6.pik",
+        // "--dataset_path=./dataset/train-2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
+        "--dataset_path=./dataset/test-2_per_apt-task_no_tv-apts_3,6.pik",
         "--num_agents=2",
-        // "--num_agents=1",
         "--autotom_method=llm",
         // "--autotom_method=autotom",
-        // "--autotom_proposer_name=gemini/gemini-2.5-flash-lite-preview-06-17",
-        // "--autotom_proposer_name=gemini/gemini-2.5-flash",
-        // "--autotom_proposer_name=gemini/gemini-2.0-flash-thinking-exp-01-21",
-        // "--autotom_proposer_name=o3-mini",
-        "--autotom_proposer_name=hosted_vllm/qwen3-235b-fp8",
-        "--autotom_estimator_name=hosted_vllm/qwen3-235b-fp8",
-        "--helper_class=GnP",
-        // "--gnp_thres_grab=0.7",
-        "--gnp_thres_grab=2.0", // * don't act at all
-        "--autotom_num_particles=10",
+        "--autotom_proposer_name=hosted_vllm/qwen3-4b-single-hypothesis-step20",
+        // "--autotom_proposer_name=hosted_vllm/qwen3-4b-no-entropy-step40",
+        // "--autotom_estimator_name=hosted_vllm/dummy",
+        // "--autotom_disable_estimation", # smc without estimation
+        "--gnp_thres_grab=0.7",
+        // "--gnp_thres_grab=2.0", // * don't act at all
+        // "--autotom_num_particles=10",
+        "--autotom_num_particles=1",
         // "--helper_goal_type=gt",
-        "--base_port=8088",
+        "--base_port=28688",
         "--num_runs=1",
-        "--debug",
+        "--debug"
         // "--episode_ids=0",
         // "--max_steps=50",
-        // "--autotom_start_at_put",
-        // "--autotom_num_particles=3",
       ],
-      "preLaunchTask": "clear :8088"
+      "preLaunchTask": "clear :28688"
+    },
+    {
+      "name": "main | ai-ai",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--helper_class=MCTS",
+        // * visual
+        // "--save_camera_views=all",
+        // "--image_width=960",
+        // "--image_height=720",
+        "--executable_file=../virtualhome/unity/macos_exec.2.2.4.app",
+        // "--dataset_path=./dataset/train-2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
+        "--dataset_path=./dataset/test-2_per_apt-task_no_tv-apts_3,6.pik",
+        "--num_agents=2",
+        "--helper_goal_type=gt",
+        // "--helper_goal_type=random",
+        "--base_port=18688",
+        "--num_runs=1",
+        "--debug"
+        // "--episode_ids=0",
+        // "--max_steps=50",
+      ],
+      "preLaunchTask": "clear :18688"
+    },
+    {
+      "name": "main | real human",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "main.py",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "args": [
+        "--helper_class=Human",
+        // * visual
+        // "--save_camera_views=all",
+        // "--image_width=960",
+        // "--image_height=720",
+        "--executable_file=../virtualhome/unity/macos_exec.2.2.4.app",
+        // "--dataset_path=./dataset/train-2_per_apt-task_no_tv-apts_0,1,2,4,5-subset_20.pik",
+        "--dataset_path=./dataset/test-2_per_apt-task_no_tv-apts_3,6.pik",
+        "--num_agents=2",
+        "--base_port=28588",
+        "--num_runs=1",
+        "--debug"
+        // "--episode_ids=0",
+        // "--max_steps=50",
+      ],
+      "preLaunchTask": "clear :28588"
     },
     {
       "name": "AutoToM_prompts",
@@ -108,7 +172,10 @@
       "env": {
         "PYTHONPATH": "${workspaceFolder}"
       },
-      "args": ["--exec_file=../virtualhome/unity/macos_exec.2.2.4.app"]
+      "args": [
+        "--task=no_tv",
+        "--exec_file=../virtualhome/unity/macos_exec.2.2.4.app"
+      ]
     },
     {
       "name": "vh_gnp_single_item",

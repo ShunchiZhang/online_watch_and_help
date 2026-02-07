@@ -129,15 +129,12 @@ class Saver:
         self.img_h = save_img["image_height"]
         camera_views = save_img["camera_views"]
         view_options = set(BaseUnityEnvironment.camera_mapping.keys())
-        if camera_views.lower() == "all":
-            self.camera_views = view_options
-        elif camera_views in ("", None):
+        if camera_views is None:
             self.camera_views = []
+        elif camera_views == ["all"]:
+            self.camera_views = view_options
         else:
-            if isinstance(camera_views, str):
-                self.camera_views = [camera_views]
-            else:
-                self.camera_views = camera_views
+            self.camera_views = camera_views
         assert all(view in view_options for view in self.camera_views)
 
         self.save_belief = save_belief
@@ -273,7 +270,7 @@ class Saver:
             "cost",
             "key_actions",
         }
-        io_keys = {"io"}
+        io_keys = {"io", "prompt_info", "human_done"}
 
         graph_data = {k: saved_info[k] for k in graph_keys if k in saved_info}
         with self.episode_graph_path.open("wb") as f:
@@ -482,6 +479,10 @@ class Saver:
 
     def record_io(self, io):
         self.episode_saved_info["io"].append(io)
+
+    def record_prepare(self, prompt_info, human_done):
+        self.episode_saved_info["prompt_info"].append(prompt_info)
+        self.episode_saved_info["human_done"].append(human_done)
 
     def save_run(self):
         failure_list = []

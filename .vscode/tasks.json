@@ -5,19 +5,59 @@
   "tasks": [
     {
       "type": "shell",
-      "label": "clear :8088",
-      "command": "lsof -i :8088 -t | xargs -r kill -9"
+      "label": "clear :28088",
+      "command": "lsof -i :28088 -t | xargs -r kill -9"
     },
     {
       "type": "shell",
-      "label": "clear :8488",
-      "command": "lsof -i :8488 -t | xargs -r kill -9"
+      "label": "clear :28188",
+      "command": "lsof -i :28188 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28288",
+      "command": "lsof -i :28288 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28388",
+      "command": "lsof -i :28388 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28488",
+      "command": "lsof -i :28488 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28588",
+      "command": "lsof -i :28588 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28688",
+      "command": "lsof -i :28688 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28788",
+      "command": "lsof -i :28788 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28888",
+      "command": "lsof -i :28888 -t | xargs -r kill -9"
+    },
+    {
+      "type": "shell",
+      "label": "clear :28988",
+      "command": "lsof -i :28988 -t | xargs -r kill -9"
     },
     {
       "type": "shell",
       "label": "kill all",
       "command": "pgrep -fl VirtualHome"
       // "command": "pkill -f VirtualHome"
-    },
+    }
   ]
 }

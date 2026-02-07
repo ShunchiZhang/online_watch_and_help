@@ -1,8 +1,10 @@
 import asyncio
+import math
 import random
 import time
 from collections import Counter
 from functools import partial
+from typing import Literal
 
 from json_repair import repair_json
 from litellm import acompletion
@@ -15,7 +17,7 @@ from utils.utils_logging import get_existing_logger_by_prefix
 
 
 class Object(BaseModel):
-    type: str = Field(..., choices=OBJECT_NAMES)
+    type: Literal[tuple(OBJECT_NAMES)]
     count: int = Field(..., ge=1)
 
     @staticmethod
@@ -35,12 +37,12 @@ class Object(BaseModel):
 
 
 class Target(BaseModel):
-    type: str = Field(..., choices=TARGET_NAMES)
+    type: Literal[tuple(TARGET_NAMES)]
     # preposition: str = Field(..., choices=["on", "inside"]) # * reduce planning space
 
 
 class GoalParticle(BaseModel):
-    task_name: str = Field(..., choices=TASK_NAMES)
+    task_name: Literal[tuple(TASK_NAMES)]
     objects: list[Object] = Field(..., min_items=1)
     target: Target
     p: float = Field(..., ge=0, le=1, description="Probability of the goal proposal")
@@ -152,6 +154,16 @@ class Likelihood(BaseModel):
     )
 
 
+DUMMY_PARTICLE = {
+    "task_name": "setup_table",
+    "objects": [
+        {"type": "plate", "count": 1},
+    ],
+    "target": {"type": "kitchentable"},
+    "p": 0.25,
+}
+
+
 # * p(goal | next_human_action, curr_env_state, curr_human_state, key_action_history)
 propose = """\
 Human has been working on a task of moving some objects to a target location. The task type can only be one of the following: setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
@@ -176,16 +188,40 @@ Hints:
 Output Requirements:
 Please provide a probability distribution over n={n} hypotheses of [human's overall goal] (including both finished and potential future subgoals).
 Your response should include the probability distribution formatted according to this JSON schema: {schema}
+Please output the minified JSON.
 """
 propose = partial(propose.format, schema=GoalParticles.model_json_schema())
+
+propose_single = """\
+Human has been working on a task of moving some objects to a target location. The task type can only be one of the following: setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
+
+Your are a helpful assistant. In order to help human, please propose the most likely hypothesis of [human's overall goal] (including both finished and potential future subgoals), base on the following information:
+
+[current state]
+{curr_env_state}
+
+{curr_human_state}
+
+[key action history]
+{key_action_history}
+
+[human's next action]
+{next_human_action}
+
+Hints: The task type is constant and the target location is unique, i.e., human will be consistently doing the same task (setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV) and put all objects to the same location.
+
+Output Requirements:
+Please provide the most likely hypothesis of [human's overall goal] (including both finished and potential future subgoals).
+Your response should include the probability distribution formatted according to this JSON schema: {schema}
+Please output the minified JSON.
+"""
+propose_single = partial(propose_single.format, schema=GoalParticle.model_json_schema())
 
 # * p(curr_human_action | goal, curr_env_state, curr_human_state, key_action_history)
 forward_likelihood = """\
 Human has been working on a task of moving some objects to a target location.
 
-Please estimate the likelihood of: [human's next action] {next_human_action}
-
-given the following information:
+Given the following information:
 
 [current state]
 {curr_env_state}
@@ -198,16 +234,54 @@ given the following information:
 Hints:
 - If human holds nothing, human must grab a goal object, or walk towards a goal object or its room. **Please note: it is perfectly fine to grab any goal object, not necessarily the nearest one.**
 - If human holds something, human must put the object to the target location, or walk towards the target location or its room.
-- The action is impossible (p=0) if it contradicts the above rules.
+- The action is unlikely if it contradicts the above rules.
 
-Output Requirements:
-Please provide a likelihood estimation in float number between 0 and 1.
-Your response should include the likelihood estimation formatted according to this JSON schema: {schema}
-"""
-forward_likelihood = partial(
-    forward_likelihood.format, schema=Likelihood.model_json_schema()
-)
+Determine if the following statement is likely, and respond with only either A or B.
+[human's next action] {next_human_action}
+A) Likely.
+B) Unlikely.
+""".format
 
+# * p(curr_human_action | goal, init_env_state, init_human_state, key_action_history)
+forward_likelihood_all_time = """
+Human has been working on a task of moving some objects to a target location.
+
+Given the following information:
+
+[initial state]
+{init_env_state}
+
+{init_human_state}
+
+[human's overall goal]
+{goal}
+
+Reasonable human actions follow the following rules:
+- Human will walk towards goal objects, grab goal objects, then walk towards the target location and put goal objects to the target location.
+- Human can execute this process in any order. It implies that human will not necessarily grab the nearest goal object first.
+- Human can grab at most two goal objects at the same time.
+- Human will grab only goal objects, and put something only to the target location.
+- Human will walk towards only goal objects or the target location.
+
+Determine if the following human's action sequence is likely. It's unlikely if it contradicts the above rules.
+
+Note: The human's action sequence could be either complete or partial.
+
+[human's action sequence]
+{key_action_history}
+
+Respond with only a single capital letter A or B, representing A=Likely or B=Unlikely.
+""".strip().format
+
+prior = """
+Human has been working on a task of moving some objects to a target location. The task type can only be one of the following: setting up a table, putting something in the dishwasher, putting something in the fridge, preparing food, or watching TV.
+
+Determine if the following task description "(<task_type>) put <objects> to <target_location>" is consistent. In other words, if "put <objects> to <target_location>" is semantically consistent with the task type.
+
+{goal}
+
+Respond with only a single capital letter A or B, representing A=Consistent or B=Inconsistent.
+""".strip().format
 
 LLM_PRICING = {
     # https://platform.openai.com/docs/pricing
@@ -228,6 +302,16 @@ LLM_PRICING = {
 
 
 async def call_llm(prompt, model_slug, out_type, **kwargs):
+    # ! debug only
+    if model_slug == "hosted_vllm/dummy":
+        return (
+            GoalParticles.model_validate(
+                dict(particles=[DUMMY_PARTICLE for _ in range(10)])
+            ),
+            dict(input=prompt, output=""),
+            Counter(dollar=0, input_tokens=0, output_tokens=0),
+        )
+
     if model_slug.startswith("gpt"):
         base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
@@ -246,15 +330,30 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
             base_args = dict(thinking=dict(type="enabled", budget_tokens=0))
     elif model_slug.startswith("hosted_vllm/"):
         # https://docs.litellm.ai/docs/providers/vllm
-        base_args = dict(temperature=0, api_key="EMPTY")
-        if model_slug.startswith("hosted_vllm/qwen3-235b-fp8"):
+        # base_args = dict(temperature=0, api_key="EMPTY")
+        base_args = dict(temperature=0.6, api_key="EMPTY")
+        if model_slug.startswith("hosted_vllm/qwen3-4b"):
             base_args["base_url"] = "http://localhost:6661/v1"
-        elif model_slug.startswith("hosted_vllm/qwen3-4b"):
+        elif model_slug.startswith("hosted_vllm/llama3-3b"):
+            base_args["base_url"] = "http://localhost:6661/v1"
+        elif model_slug.startswith("hosted_vllm/llama3-8b"):
+            base_args["base_url"] = "http://localhost:6661/v1"
+        elif model_slug == "hosted_vllm/qwen3-235b-fp8":
             base_args["base_url"] = "http://localhost:6662/v1"
         else:
             raise ValueError(f"Invalid model_slug: {model_slug}")
     else:
         raise ValueError(f"Invalid model_slug: {model_slug}")
+
+    if out_type == "forward_likelihood":
+        base_args.update(
+            dict(
+                temperature=0.0,
+                top_p=1e-5,
+                logprobs=True,
+                top_logprobs=5,
+            )
+        )
 
     while True:
         try:
@@ -267,13 +366,22 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
             # * advantage of using repair_json instead of response_format:
             # * model can freely output CoT then final answer
             resp_text = resp.choices[0].message.content
-            if out_type is not None:
+            if out_type is None:
+                obj = resp.choices[0].message.content
+            elif out_type == "forward_likelihood":
+                top_probs = {
+                    i.token: math.exp(i.logprob)
+                    for i in resp.choices[0].logprobs.content[0].top_logprobs
+                }
+                obj = top_probs["A"] / (top_probs["A"] + top_probs["B"])
+                pass
+            else:
                 obj = repair_json(resp_text, return_objects=True)
                 if isinstance(obj, list):
                     obj = obj[-1]  # keep the last valid json
                 obj = out_type.model_validate(obj)
-            else:
-                obj = resp_text
+                if out_type == GoalParticle:
+                    obj = GoalParticles(particles=[obj])
             break
         except Exception as e:
             e = check_quota_exceeded(e)

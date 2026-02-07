@@ -6,7 +6,7 @@ def add_helper_args(parser):
         "--helper_class",
         type=str,
         default="MCTS",
-        choices=["MCTS", "GnP", "NOPA"],
+        choices=["MCTS", "GnP", "Human"],
         help="The class of the helper to use",
     )
     parser.add_argument(
@@ -15,12 +15,6 @@ def add_helper_args(parser):
         default="unknown",
         choices=["unknown", "gt", "random"],
         help="The type of the helper's goal",
-    )
-    parser.add_argument(
-        "--nopa_thres_exec",
-        type=float,
-        default=0.80,
-        help="The threshold for the execution in NOPA_agent",
     )
     parser.add_argument(
         "--gnp_thres_grab",
@@ -41,6 +35,18 @@ def add_helper_args(parser):
         help="Whether to start AutoToM at the beginning or wait for human's first putback action",
     )
     parser.add_argument(
+        "--autotom_hide_helper_history",
+        action="store_true",
+        default=False,
+        help="Whether to hide helper's actions in the key action history in the prompt",
+    )
+    parser.add_argument(
+        "--autotom_disable_estimation",
+        action="store_true",
+        default=False,
+        help="Whether to disable estimation in AutoToM's SMC",
+    )
+    parser.add_argument(
         "--autotom_thres_filter",
         type=float,
         default=0.10,
@@ -55,34 +61,52 @@ def add_helper_args(parser):
     parser.add_argument(
         "--autotom_proposer_name",
         type=str,
-        # default="gpt-4o",
-        required=True,
+        default=None,
         choices=[
             "gpt-4o",
-            "o3-mini",
             "gpt-4o-mini",
             "gemini/gemini-2.5-flash",
             "gemini/gemini-2.5-flash-lite-preview-06-17",
-            "gemini/gemini-2.0-flash-thinking-exp-01-21",
-            "hosted_vllm/qwen3-4b",
             "hosted_vllm/qwen3-235b-fp8",
+            # * qwen3-4b
+            "hosted_vllm/qwen3-4b",
+            "hosted_vllm/qwen3-4b-prr-step20",
+            "hosted_vllm/qwen3-4b-prr-step40",
+            "hosted_vllm/qwen3-4b-prr-step60",
+            "hosted_vllm/qwen3-4b-lkl-step20",
+            "hosted_vllm/qwen3-4b-lkl-step40",
+            "hosted_vllm/qwen3-4b-lkl-step60",
+            "hosted_vllm/qwen3-4b-fmt-step21",
+            "hosted_vllm/qwen3-4b-step100",
+            "hosted_vllm/qwen3-4b-single-hypothesis-step20",
+            "hosted_vllm/qwen3-4b-no-entropy-step20",
+            "hosted_vllm/qwen3-4b-no-entropy-step40",
+            # * llama3-8b
+            "hosted_vllm/llama3-8b-prr-step10",
+            "hosted_vllm/llama3-8b-prr-step20",
+            "hosted_vllm/llama3-8b-prr-step30",
+            "hosted_vllm/llama3-8b-fmt-step15",
+            # * llama3-3b
+            "hosted_vllm/llama3-3b-prr-step10",
+            "hosted_vllm/llama3-3b-prr-step20",
+            "hosted_vllm/llama3-3b-prr-step30",
+            "hosted_vllm/llama3-3b-fmt-distill-step30",
+            "hosted_vllm/llama3-3b-fmt-distill-step100",
+            "hosted_vllm/dummy",
         ],
         help="The name of the LLM to use in AutoToM",
     )
     parser.add_argument(
         "--autotom_estimator_name",
         type=str,
-        # default="gpt-4o",
-        required=True,
+        default=None,
         choices=[
             "gpt-4o",
-            "o3-mini",
             "gpt-4o-mini",
             "gemini/gemini-2.5-flash",
             "gemini/gemini-2.5-flash-lite-preview-06-17",
-            "gemini/gemini-2.0-flash-thinking-exp-01-21",
-            # "hosted_vllm/qwen3-4b",
             "hosted_vllm/qwen3-235b-fp8",
+            "hosted_vllm/dummy",
         ],
         help="The name of the LLM to use in AutoToM",
     )
@@ -109,13 +133,14 @@ def get_args():
         "--save_camera_views",
         type=str,
         nargs="+",
-        default="third_behind",
+        default=None,
         choices=[
+            "all",
             "third_front",
             "third_isometric",
-            "first_front",
             "third_behind",
             "third_oblique",
+            "first_front",
             "first_right",
             "first_left",
             "first_back",
