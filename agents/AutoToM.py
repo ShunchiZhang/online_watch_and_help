@@ -15,6 +15,8 @@ class AutoToM:
         proposer_name,
         estimator_name,
         method,
+        hide_helper_history,
+        disable_estimation,
     ):
         """
         `filter_thres`: filter threshold to filter out low-confidence hypos
@@ -27,6 +29,8 @@ class AutoToM:
         self.filter_thres = filter_thres
         self.num_particles = num_particles
         self.method = method
+        self.hide_helper_history = hide_helper_history
+        self.disable_estimation = disable_estimation
 
     def reset(self, gt_graph, belief):
         """
@@ -41,19 +45,22 @@ class AutoToM:
         #     self.env_ctnr_ids, self.env_srfc_ids
         # )
 
-    def prepare(self, curr_gt_graph, human_actions, helper_actions):
-        eg = EG(curr_gt_graph)
+    def prepare(self, init_gt_graph, curr_gt_graph, human_actions, helper_actions):
+        eg_init = EG(init_gt_graph)
+        eg_curr = EG(curr_gt_graph)
 
         # * curr_story
-        curr_env_state = eg.env_state(self.env_ctnr_ids, self.env_srfc_ids)
+        init_env_state = eg_init.env_state(self.env_ctnr_ids, self.env_srfc_ids)
+        curr_env_state = eg_curr.env_state(self.env_ctnr_ids, self.env_srfc_ids)
 
         # * curr_state: human close to ..., holds ...
-        curr_human_state = eg.agent_state_natlang(agent_id=1, name="Human")
+        init_human_state = eg_init.agent_state_natlang(agent_id=1, name="Human")
+        curr_human_state = eg_curr.agent_state_natlang(agent_id=1, name="Human")
 
         # * actions
         human_done, _, _ = check_progress(human_actions[:-1])
-        human_actions = eg.actions_to_natlang(human_actions, name="Human")
-        helper_actions = eg.actions_to_natlang(helper_actions, name="Helper")
+        human_actions = eg_curr.actions_to_natlang(human_actions, name="Human")
+        helper_actions = eg_curr.actions_to_natlang(helper_actions, name="Helper")
 
         def filter_key_action(a):
             return any(verb in a for verb in ["grabs", "puts"])
@@ -70,19 +77,27 @@ class AutoToM:
         else:
             helper_key_history = "Helper has not taken any key action yet."
 
-        key_action_history = "\n\n".join([human_key_history, helper_key_history])
+        if self.hide_helper_history:
+            key_action_history = human_key_history
+        else:
+            key_action_history = "\n\n".join([human_key_history, helper_key_history])
 
         prompt_info = dict(
+            init_env_state=init_env_state,
             curr_env_state=curr_env_state,
+            init_human_state=init_human_state,
             curr_human_state=curr_human_state,
             key_action_history=key_action_history,
             next_human_action=human_actions[-1],
         )
+        self.saver.record_prepare(prompt_info, human_done)
         return prompt_info, human_done
 
-    def step(self, curr_gt_graph, human_actions, helper_actions, particles):
+    def step(
+        self, init_gt_graph, curr_gt_graph, human_actions, helper_actions, particles
+    ):
         prompt_info, human_done = self.prepare(
-            curr_gt_graph, human_actions, helper_actions
+            init_gt_graph, curr_gt_graph, human_actions, helper_actions
         )
         match self.method:
             case "autotom":
@@ -94,7 +109,12 @@ class AutoToM:
         return particles
 
     def new_particles(self, prompt_info, n):
-        prompt = prompts.propose(**prompt_info, n=n)
+        if n == 1:
+            prompt = prompts.propose_single(**prompt_info)
+            out_type = prompts.GoalParticle
+        else:
+            prompt = prompts.propose(**prompt_info, n=n)
+            out_type = prompts.GoalParticles
         self.saver.debug(f"[new_particles.prompt]\n{prompt}")
 
         while True:
@@ -102,7 +122,7 @@ class AutoToM:
                 particles, io, cost = prompts.call_llm_batch(
                     [prompt],
                     self.proposer_name,
-                    out_type=prompts.GoalParticles,
+                    out_type=out_type,
                     # temperature=1.0,
                 )
                 self.saver.record_io(io)
@@ -131,10 +151,13 @@ class AutoToM:
             particles.fill_particles(new_particles, self.num_particles)
         self.saver.info(f"[smc.fill]\n{pretty_repr(particles.to_natlang())}")
 
-        # ^ 2. reweight and normalize
-        probs = self.forward_likelihood(prompt_info, particles, human_done)
-        particles.reweight(probs)
-        self.saver.info(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
+        if not self.disable_estimation:
+            # ^ 2. estimate and reweight
+            probs = self.forward_likelihood(prompt_info, particles, human_done)
+            particles.reweight(probs)
+            self.saver.info(f"[smc.reweight]\n{pretty_repr(particles.to_natlang())}")
+
+        # ^ 3. filter
         particles.filter_low_conf(self.filter_thres, min_num=5, normalize=False)
         self.saver.info(f"[smc.filter]\n{pretty_repr(particles.to_natlang())}")
 
@@ -143,19 +166,27 @@ class AutoToM:
         return particles
 
     def forward_likelihood(self, prompt_info, particles, human_done):
-        log_prompt = prompts.forward_likelihood(**prompt_info, goal="DEBUG")
-        self.saver.debug(f"[forward.prompt]\n{log_prompt}")
+        if "all_time":
+            log_prompt = prompts.forward_likelihood_all_time(
+                **prompt_info, goal="DEBUG"
+            )
+            self.saver.debug(f"[forward.prompt]\n{log_prompt}")
 
-        forward_particles = copy.deepcopy(particles)
-        forward_particles.minus_objects(human_done)
+            forward_particles = copy.deepcopy(particles)
+        else:
+            log_prompt = prompts.forward_likelihood(**prompt_info, goal="DEBUG")
+            self.saver.debug(f"[forward.prompt]\n{log_prompt}")
+
+            forward_particles = copy.deepcopy(particles)
+            forward_particles.minus_objects(human_done)
 
         goals = [particle.to_natlang() for particle in forward_particles.particles]
         batch = [prompts.forward_likelihood(**prompt_info, goal=goal) for goal in goals]
         probs, _, cost = prompts.call_llm_batch(
-            batch, self.estimator_name, out_type=prompts.Likelihood
+            batch, self.estimator_name, out_type="forward_likelihood"
         )
         self.saver.record_cost(cost, "forward_likelihood")
-        probs = [p.likelihood for p in probs]
+        # probs = [p.likelihood for p in probs]
 
         self.saver.info(f"[forward]\n{pretty_repr(dict(zip(goals, probs)))}")
 

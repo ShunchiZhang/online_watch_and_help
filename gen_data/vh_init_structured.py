@@ -11,15 +11,15 @@ from virtualhome.simulation.unity_simulator import comm_unity
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--num-per-apartment", type=int, default=2, help="Maximum #episodes/apartment"
+    "--num-per-apartment", type=int, default=10, help="Maximum #episodes/apartment"
 )
-parser.add_argument("--seed", type=int, default=10, help="Seed for the apartments")
+parser.add_argument("--seed", type=int, default=42, help="Seed for the apartments")
 parser.add_argument("--task", type=str, default="all", help="Task name")
 parser.add_argument(
     "--apt_str",
     type=str,
-    default="0,1,2,4,5",  # train
-    # default="3,6", # test
+    # default="0,1,2,4,5",  # train
+    default="3,6",  # test
     help="The apartments where we will generate the data",
 )
 parser.add_argument("--port", type=str, default="8092", help="Task name")
@@ -33,6 +33,24 @@ parser.add_argument(
     default="/data/vision/torralba/frames/data_acquisition/SyntheticStories/website/release/simulator/v2.0/v2.2.5_beta5/linux_exec.v2.2.5_beta5.x86_64",
     help="Use unity editor",
 )
+
+ALL_TASKS = [
+    "setup_table",
+    "put_fridge",
+    "prepare_food",
+    "put_dishwasher",
+    "watch_tv",
+]
+
+AVAILABLE_TASKS_BY_APT_ID = {
+    0: ["setup_table", "put_fridge", "prepare_food", "watch_tv"],
+    1: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
+    2: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
+    3: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
+    4: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher"],
+    5: ["setup_table", "put_fridge", "prepare_food", "watch_tv"],
+    6: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
+}
 
 
 def add_noise_initgraph(init_graph, original_graph, random_obj):
@@ -108,15 +126,7 @@ if __name__ == "__main__":
     ## -------------------------------------------------------------
     ## gen graph
     ## -------------------------------------------------------------
-    task_names = {
-        1: ["setup_table", "put_fridge", "prepare_food", "watch_tv"],
-        2: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
-        3: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
-        4: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
-        5: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher"],
-        6: ["setup_table", "put_fridge", "prepare_food", "watch_tv"],
-        7: ["setup_table", "put_fridge", "prepare_food", "put_dishwasher", "watch_tv"],
-    }
+
 
     bad_containers = {"1": ["dishwasher"], "6": ["dishwasher"], "5": ["coffeetable"]}
 
@@ -124,15 +134,9 @@ if __name__ == "__main__":
 
     apartment_ids = [int(apt_id) for apt_id in args.apt_str.split(",")]
     if args.task == "all":
-        # tasks = ["setup_table", "prepare_food", "watch_tv"]
-        # tasks =  ["setup_table", "put_fridge", "prepare_food", "put_dishwasher"]
-        tasks = [
-            "setup_table",
-            "put_fridge",
-            "prepare_food",
-            "put_dishwasher",
-            "watch_tv",
-        ]
+        tasks = ALL_TASKS
+    elif args.task == "no_tv":
+        tasks = [t for t in ALL_TASKS if t != "watch_tv"]
     else:
         tasks = [args.task]
 
@@ -143,7 +147,7 @@ if __name__ == "__main__":
         for apartment in apartment_ids:
             print("apartment", apartment)
 
-            if "toy" not in task and task not in task_names[apartment + 1]:
+            if "toy" not in task and task not in AVAILABLE_TASKS_BY_APT_ID[apartment]:
                 continue
             # if apartment != 4: continue
             # apartment = 3

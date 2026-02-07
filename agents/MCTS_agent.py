@@ -139,7 +139,7 @@ class MCTS_agent:
             if len(curr_loc_on) > 1 or len(curr_loc_inside) > 1:
                 print(curr_loc_on)
                 print(curr_loc_inside)
-                raise AssertionError("Multiple locations for the same object")
+                raise AssertionError(f"Multiple locations for the same object {obj_id}")
             return curr_loc_index
 
     def get_action(

@@ -64,7 +64,11 @@ class GnP_agent(MCTS_agent):
             )
             if not keep_particles:
                 self.goal_particles = self.autotom.step(
-                    graphs[-2], human_actions, helper_actions, self.goal_particles
+                    graphs[0],
+                    graphs[-2],
+                    human_actions,
+                    helper_actions,
+                    self.goal_particles,
                 )
 
             # ^ 2. decide to replan or not

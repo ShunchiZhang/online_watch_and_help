@@ -31,6 +31,8 @@ class Arena(object):
             "executed": [],
             "cost": Counter(),
             "io": [],
+            "prompt_info": [],
+            "human_done": [],
         }
 
     def reset(self, episode_id, helper_goal_type, seed):
@@ -47,7 +49,7 @@ class Arena(object):
             agent.seed = seed + it
             agent.saver = self.saver
             match agent.agent_type:
-                case "MCTS" | "GnP" | "NOPA":
+                case "MCTS" | "GnP" | "Human":
                     agent.reset(self.env.full_graph)
                 case _:
                     raise ValueError(f"Invalid agent type: {agent.agent_type}")
@@ -67,8 +69,8 @@ class Arena(object):
                         # * than `self.env.task_goal`
                         goal_spec=self.env.goal_spec[it],
                     )
-                case "GnP" | "NOPA":
-                    # * AutoToM_agent will collect info from `saver`
+                case "GnP" | "Human":
+                    # * agent will collect info from `saver`
                     actions[it], agents_info[it] = agent.get_action(obs=obs[it])
                 case _:
                     raise ValueError(f"Invalid agent type: {agent.agent_type}")
