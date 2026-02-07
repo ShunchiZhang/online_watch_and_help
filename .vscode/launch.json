@@ -30,7 +30,7 @@
       "preLaunchTask": "clear :18488"
     },
     {
-      "name": "main | human-ai",
+      "name": "main | planner-ai",
       "type": "debugpy",
       "request": "launch",
       "program": "main.py",
@@ -73,7 +73,7 @@
       "preLaunchTask": "clear :28688"
     },
     {
-      "name": "main | ai-ai",
+      "name": "main | planer-planner",
       "type": "debugpy",
       "request": "launch",
       "program": "main.py",
@@ -105,7 +105,7 @@
       "preLaunchTask": "clear :18688"
     },
     {
-      "name": "main | real human",
+      "name": "main | human-ai",
       "type": "debugpy",
       "request": "launch",
       "program": "main.py",
