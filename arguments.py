@@ -65,8 +65,10 @@ def add_helper_args(parser):
         choices=[
             "gpt-4o",
             "gpt-4o-mini",
+            "gpt-5.2",
             "gemini/gemini-2.5-flash",
             "gemini/gemini-2.5-flash-lite-preview-06-17",
+            "gemini/gemini-3-flash-preview",
             "hosted_vllm/qwen3-235b-fp8",
             # * qwen3-4b
             "hosted_vllm/qwen3-4b",

@@ -313,7 +313,10 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
         )
 
     if model_slug.startswith("gpt"):
-        base_args = dict(temperature=0)
+        if model_slug == "gpt-5.2":
+            base_args = dict(temperature=0, reasoning_effort="none")
+        else:
+            base_args = dict(temperature=0)
     elif model_slug.startswith("o"):
         base_args = dict(reasoning_effort="medium")
     elif model_slug.startswith("gemini/"):
@@ -326,6 +329,8 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
             base_args = dict()  # thinking not supported
         elif model_slug.startswith("gemini/gemini-2.0-flash-thinking"):
             base_args = dict()  # thinking params not adjustable
+        elif model_slug.startswith("gemini/gemini-3-flash-preview"):
+            base_args = dict(thinking_level="minimal")
         else:
             base_args = dict(thinking=dict(type="enabled", budget_tokens=0))
     elif model_slug.startswith("hosted_vllm/"):
@@ -390,15 +395,27 @@ async def call_llm(prompt, model_slug, out_type, **kwargs):
 
     io = dict(input=prompt, output=resp_text)
     pricing = LLM_PRICING.get(model_slug, dict())
+
+    # * new openai api (response)
+    if hasattr(resp.usage, "prompt_tokens"):
+        input_tokens = resp.usage.prompt_tokens
+    else:
+        input_tokens = resp.usage.input_tokens
+
+    if hasattr(resp.usage, "completion_tokens"):
+        output_tokens = resp.usage.completion_tokens
+    else:
+        output_tokens = resp.usage.output_tokens
+
     cost = Counter(
         dollar=sum(
             [
-                resp.usage.prompt_tokens * pricing.get("input", 0),
-                resp.usage.completion_tokens * pricing.get("output", 0),
+                input_tokens * pricing.get("input", 0),
+                output_tokens * pricing.get("output", 0),
             ]
         ),
-        input_tokens=resp.usage.prompt_tokens,
-        output_tokens=resp.usage.completion_tokens,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
     )
 
     return obj, io, cost
