@@ -477,12 +477,16 @@ class Saver:
             self.debug(f"[{name}] {cost}")
         self.episode_saved_info["cost"] += cost
 
+    @property
+    def curr_step(self):
+        return len(self.episode_saved_info["action"][0])
+
     def record_io(self, io):
-        self.episode_saved_info["io"].append(io)
+        self.episode_saved_info["io"].append((self.curr_step, io))
 
     def record_prepare(self, prompt_info, human_done):
-        self.episode_saved_info["prompt_info"].append(prompt_info)
-        self.episode_saved_info["human_done"].append(human_done)
+        self.episode_saved_info["prompt_info"].append((self.curr_step, prompt_info))
+        self.episode_saved_info["human_done"].append((self.curr_step, human_done))
 
     def save_run(self):
         failure_list = []

@@ -86,6 +86,7 @@ def add_helper_args(parser):
             "hosted_vllm/llama3-8b-prr-step20",
             "hosted_vllm/llama3-8b-prr-step30",
             "hosted_vllm/llama3-8b-fmt-step15",
+            "hosted_vllm/llama3-8b-prr-v3-step120",
             # * llama3-3b
             "hosted_vllm/llama3-3b-prr-step10",
             "hosted_vllm/llama3-3b-prr-step20",
