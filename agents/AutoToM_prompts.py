@@ -288,6 +288,7 @@ LLM_PRICING = {
     # proposal: ~20s, forward: ~10s
     "gpt-4o": dict(input=2.50e-6, output=10.00e-6),
     "gpt-4o-mini": dict(input=0.15e-6, output=0.60e-6),
+    "gpt-5.2": dict(input=1.75e-6, output=14.00e-6),
     # proposal: ~100s
     "o3-mini": dict(input=1.10e-6, output=4.40e-6),
     # https://ai.google.dev/gemini-api/docs/pricing
@@ -298,6 +299,7 @@ LLM_PRICING = {
     "gemini/gemini-2.5-flash-lite-preview-06-17": dict(input=0.1e-6, output=0.4e-6),
     # proposal: ~50s (ada-think)
     "gemini/gemini-2.0-flash-thinking-exp-01-21": dict(input=0.1e-6, output=0.4e-6),
+    "gemini/gemini-3-flash-preview": dict(input=0.5e-6, output=3e-6),
 }
 
 
