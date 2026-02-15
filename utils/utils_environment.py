@@ -16,7 +16,8 @@ def convert_goal(task_goal, init_graph):
         if isinstance(count, int):
             cont_id = int(goal_name.split("_")[-1])
             class_name = goal_name.split("_")[1]
-            obj_grab = ids_from_class[class_name]
+            # * NOTE: LM may hallucinate the object type. Can be improved with prior_v4
+            obj_grab = ids_from_class.get(class_name, [])
             newgoals[goal_name] = {
                 "count": count,
                 "grab_obj_ids": obj_grab,

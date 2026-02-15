@@ -89,7 +89,7 @@ ENV_ID_TO_TARGET_NAME_TO_ID = {
         stove=242,
     ),
     6: dict(
-        coffeetable=[247, 327][1],
+        coffeetable=[247, 327][0],
         dishwasher=159,
         fridge=[165, 166][1],
         kitchentable=130,
