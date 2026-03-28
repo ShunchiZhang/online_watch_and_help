@@ -1,4 +1,3 @@
-git+https://github.com/ShunchiZhang/virtualhome.git@wah-fix
 anytree==2.13.0
 ffmpeg-python==0.2.0
 json_repair==0.46.0
