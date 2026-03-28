@@ -6,6 +6,9 @@
 > | [MindZero](https://shunchi.dev/mindzero) | TBD                       | [`MindZero`](../../tree/MindZero)   |
 > | [AutoToM](https://shunchi.dev/autotom)   | NeurIPS 2025 🌟 Spotlight | [`AutoToM`](../../tree/AutoToM)     |
 
+<details>
+<summary>Original README of NOPA (aka Online Watch-And-Help)</summary>
+
 # NOPA: Neurally-guided Online Probabilistic Assistance for Building Socially Intelligent Home Assistants
 
 This is the official implementation of the paper [*NOPA: Neurally-guided Online Probabilistic Assistance for Building Socially Intelligent Home Assistants*](https://arxiv.org/abs/2301.05223). 
@@ -49,4 +52,6 @@ Coming soon
 
 ## Visualize results
 Coming soon
+
+</details>
 
