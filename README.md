@@ -1,13 +1,13 @@
 > [!IMPORTANT]
 > Please switch to the corresponding branch for the code of each paper.
 >
-> | Project                                  | Venue                     | Branch                              |
-> |------------------------------------------|---------------------------|-------------------------------------|
-> | [MindZero](https://shunchi.dev/mindzero) | TBD                       | [`MindZero`](../../tree/MindZero)   |
-> | [AutoToM](https://shunchi.dev/autotom)   | NeurIPS 2025 🌟 Spotlight | [`AutoToM`](../../tree/AutoToM)     |
+> | Project                                    | Venue                     | Branch                              |
+> |--------------------------------------------|---------------------------|-------------------------------------|
+> | *[MindZero](https://shunchi.dev/mindzero)* | ICML 2026                 | [`MindZero`](../../tree/MindZero)   |
+> | *[AutoToM](https://shunchi.dev/autotom)*   | NeurIPS 2025 🌟 Spotlight | [`AutoToM`](../../tree/AutoToM)     |
 
 <details>
-<summary>Original README of NOPA (aka Online Watch-And-Help)</summary>
+<summary>Original README of <a href="https://www.tshu.io/online_watch_and_help/"><i>NOPA</i></a> (aka <i>Online Watch-And-Help</i>)</summary>
 
 # NOPA: Neurally-guided Online Probabilistic Assistance for Building Socially Intelligent Home Assistants
 
